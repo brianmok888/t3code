@@ -19,6 +19,8 @@ import {
 } from "../sourceControl/threadPullRequests.ts";
 import {
   ORCHESTRATION_V2_WORKSPACE_PREPARATION_FAILURE_CODE,
+  approvalFeedbackMessageId,
+  questionAnswerMessageId,
   type ChatAttachment,
   CommandId,
   type GuestMessageId,
@@ -7887,7 +7889,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const emitEvent = emit(events, command);
       const requestNode = context.node;
       if (command.feedback !== undefined) {
-        const messageId = MessageId.make(`approval-feedback:${command.requestId}`);
+        const messageId = approvalFeedbackMessageId(command.requestId);
         // Record the reply for every client without dispatching a prompt to the parent agent.
         yield* emitEvent({
           type: "message.updated",
@@ -8091,7 +8093,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             type: "message.dispatch",
             commandId: command.commandId,
             threadId: command.threadId,
-            messageId: MessageId.make(`async-answer:${command.requestId}`),
+            messageId: questionAnswerMessageId(command.requestId),
             text: replies.join("\n\n"),
             attachments: [],
             createdBy: "user",

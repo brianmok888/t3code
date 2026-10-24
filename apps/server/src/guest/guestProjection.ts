@@ -4,6 +4,7 @@ import {
   type GuestStreamEvent,
   type GuestThreadModel,
   type GuestTurnItem,
+  isRequestAnswerMessageId,
   type OrchestrationV2AppThread,
   type OrchestrationV2Run,
   type OrchestrationV2ThreadProjection,
@@ -146,9 +147,7 @@ const GUEST_PROJECTORS: { readonly [T in OrchestrationV2TurnItem["type"]]: Proje
       item.scheduledTaskId !== undefined ||
       item.senderThreadId !== undefined ||
       item.workflowScript === true ||
-      (item.creationSource === "server" &&
-        (item.messageId.startsWith("approval-feedback:") ||
-          item.messageId.startsWith("async-answer:")))
+      (item.creationSource === "server" && isRequestAnswerMessageId(item.messageId))
     ) {
       return null;
     }
