@@ -20,7 +20,11 @@ import {
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentStore.ts";
+import {
+  createAttachmentId,
+  createPendingAttachmentId,
+  resolveAttachmentPath,
+} from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import {
@@ -370,7 +374,7 @@ it.effect("sends a guest message with the guest's files, never ones the client n
     const config = yield* ServerConfig.ServerConfig;
     const guestFile = {
       type: "image" as const,
-      id: ChatAttachmentId.make(createPendingAttachmentId()),
+      id: ChatAttachmentId.make(createAttachmentId("thread-guest")!),
       name: "screen.png",
       mimeType: "image/png",
       sizeBytes: 3,
@@ -414,15 +418,7 @@ it.effect("sends a guest message with the guest's files, never ones the client n
     const command = captured[0];
     if (command?.type !== "message.dispatch") throw new Error("Expected a message dispatch.");
     expect(command.attachments).toHaveLength(1);
-    const [sent] = command.attachments;
-    // The guest's file, copied into the thread.
-    expect(sent).toMatchObject({ name: "screen.png", mimeType: "image/png", sizeBytes: 3 });
-    expect(sent!.id.startsWith("thread-guest-")).toBe(true);
-    expect(sent!.id).not.toBe("thread-guest-owner-file");
-    const path = resolveAttachmentPath({
-      attachmentsDir: config.attachmentsDir,
-      attachment: sent!,
-    });
-    expect(NodeFS.readFileSync(path!)).toEqual(Buffer.from([1, 2, 3]));
+    // The guest's file, which is already the thread's.
+    expect(command.attachments).toEqual([guestFile]);
   }).pipe(Effect.provide(layerIntakeTest)),
 );

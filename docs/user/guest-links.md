@@ -26,7 +26,8 @@ The guest sees the last three turns before you shared the thread and everything 
 timeline you see, as it streams. They see messages, plans, the agent's questions, and its work:
 commands, file names, searches, and tool names. Their composer shows the thread's model, but they
 cannot change it. They do not see command output, diffs, file contents, the agent's reasoning, or
-what you answer in approval prompts.
+what you answer in approval prompts and the agent's questions. Paths in the workspace show as
+relative paths, and paths in your home folder start with `~`.
 
 The agent's replies can still repeat something it read, such as a value from a file. Share only
 threads you are comfortable showing.
@@ -38,8 +39,8 @@ the message box. A message holds up to 4 files and 10 MB in total. Images must b
 WebP. While messages wait for you, their files can total 20 MB; the guest can attach more once you
 send or dismiss some.
 
-Dismissing a message or ending the link deletes its files. Files of a message nobody sends or
-dismisses are deleted a day after upload.
+Dismissing a message, ending the link, or archiving the thread deletes the files of messages that
+still wait. A sent message keeps its files, like any message in the thread.
 
 The guest's text and files run with the thread's current permission mode once you send them. Check
 them before you choose **Send**, as you would anything pasted from a chat.

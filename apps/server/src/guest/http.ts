@@ -12,12 +12,14 @@ import {
   guestSessionCookieName,
   isProviderSendTurnSupportedImageMimeType,
 } from "@t3tools/contracts";
+import * as ByteSize from "effect/ByteSize";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "effect/http";
+import * as HttpIncomingMessage from "effect/http/HttpIncomingMessage";
 
 import { htmlRenderFileName } from "@t3tools/shared/htmlRender";
 
@@ -60,20 +62,32 @@ const badRequest = HttpServerResponse.json(
 const sessionFor = (request: HttpServerRequest.HttpServerRequest, shareId: string | null) =>
   shareId === null ? "" : (request.cookies[guestSessionCookieName(shareId)] ?? "");
 
+const requestedShareId = (request: HttpServerRequest.HttpServerRequest) =>
+  new URLSearchParams(request.url.split("?", 2)[1] ?? "").get(GUEST_SHARE_PARAM);
+
 /** The session for the share the request names in `?share=`. */
 const sessionToken = Effect.map(HttpServerRequest.HttpServerRequest, (request) =>
-  sessionFor(
-    request,
-    new URLSearchParams(request.url.split("?", 2)[1] ?? "").get(GUEST_SHARE_PARAM),
-  ),
+  sessionFor(request, requestedShareId(request)),
 );
+
+// Guest JSON bodies are a name or one message; anyone who can reach the tunnel can post them.
+const JSON_MAX_BODY_BYTES = 64 * 1024;
+const readJson = Effect.gen(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  // A declared length over the cap is refused before reading; chunked bodies hit the reader cap.
+  if (Number(request.headers["content-length"] ?? "0") > JSON_MAX_BODY_BYTES) {
+    return yield* new GuestShareAccessError({ reason: "too_large" });
+  }
+  return yield* request.json.pipe(
+    Effect.provideService(HttpIncomingMessage.MaxBodySize, ByteSize.bytes(JSON_MAX_BODY_BYTES)),
+  );
+});
 
 const redeemRoute = HttpRouter.add(
   "POST",
   `${GUEST_ROUTE_PREFIX}/redeem`,
   Effect.gen(function* () {
-    const request = yield* HttpServerRequest.HttpServerRequest;
-    const body = yield* request.json.pipe(Effect.flatMap(decodeRedeem), Effect.option);
+    const body = yield* readJson.pipe(Effect.flatMap(decodeRedeem), Effect.option);
     if (body._tag === "None") return yield* badRequest;
     const guestShares = yield* GuestShareService;
     return yield* guestShares.redeem(body.value).pipe(
@@ -105,7 +119,7 @@ const UPLOAD_LIMITS = Multipart.limitsServices({
 const readSubmission = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest;
   if (!request.headers["content-type"]?.startsWith("multipart/form-data")) {
-    const body = yield* request.json.pipe(Effect.flatMap(decodeSubmit), Effect.option);
+    const body = yield* readJson.pipe(Effect.flatMap(decodeSubmit), Effect.option);
     return body._tag === "None" ? null : { fields: body.value, uploads: [] };
   }
   const parts = yield* request.multipart.pipe(
@@ -143,13 +157,14 @@ const submitRoute = HttpRouter.add(
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const guestShares = yield* GuestShareService;
+    // The session is checked before the body is read, so only a guest can make the server parse
+    // and store up to 10 MB.
+    const shareId = requestedShareId(request);
+    const session = sessionFor(request, shareId);
+    yield* guestShares.check(session);
     const submission = yield* readSubmission;
-    if (submission === null) return yield* badRequest;
-    yield* guestShares.submit(
-      sessionFor(request, submission.fields.shareId),
-      submission.fields,
-      submission.uploads,
-    );
+    if (submission === null || submission.fields.shareId !== shareId) return yield* badRequest;
+    yield* guestShares.submit(session, submission.fields, submission.uploads);
     return HttpServerResponse.empty({ status: 204, headers: NO_STORE });
   }).pipe(
     Effect.catchTags({ GuestShareAccessError: errorResponse }),

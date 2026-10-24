@@ -5280,10 +5280,20 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
         AND type = 'dynamic_tool'
         AND (payload_json LIKE '%htmlRender%' OR payload_json LIKE ${`%${MCP_APP_OUTPUT_KEY}%`})
     `,
+        // A guest's waiting files are pending uploads that no message row holds yet.
+        sql<{ id: string }>`
+      SELECT DISTINCT json_extract(attachment.value, '$.id') AS id
+      FROM orchestration_v2_projection_threads AS thread,
+        json_each(thread.payload_json, '$.guestShare.messages') AS message,
+        json_each(message.value, '$.attachments') AS attachment
+      WHERE thread.thread_id = ${threadId}
+        AND json_extract(message.value, '$.status') = 'pending'
+    `,
       ]).pipe(
-        Effect.map(([messages, renders]) => [
+        Effect.map(([messages, renders, guestFiles]) => [
           ...new Set([
             ...messages.map((row) => row.id),
+            ...guestFiles.map((row) => row.id),
             ...threadHtmlRenderAttachmentIds(
               threadId,
               renders.map((row) => {

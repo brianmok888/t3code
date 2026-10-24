@@ -54,9 +54,9 @@ const releaseUnusedClaims = Effect.fn("ThreadMessageIntake.releaseUnusedClaims")
 });
 
 /**
- * A guest message goes out with the files the guest attached, never ones a client names, and
- * they are copied into the thread like any upload. A message no longer waiting gets none; the
- * orchestrator then refuses or replays the send.
+ * A guest message goes out with the files the guest attached, never ones a client names. They
+ * are already the thread's attachments. A message no longer waiting gets none; the orchestrator
+ * then refuses or replays the send.
  */
 const withGuestAttachments = Effect.fn("ThreadMessageIntake.withGuestAttachments")(function* (
   command: Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>,

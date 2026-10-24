@@ -14,6 +14,7 @@ import {
   type ThreadGuestMessage,
 } from "@t3tools/contracts";
 import type { ThreadRunSummary } from "@t3tools/client-runtime/state/models";
+import { createOrchestrationV2TurnItemVisibility } from "@t3tools/shared/orchestrationV2Timeline";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -107,7 +108,7 @@ export function applyGuestStreamEvent(
 ): GuestStreamState {
   switch (event.type) {
     case "snapshot": {
-      // Another tab redeemed a newer link, and the shared cookie now opens that thread.
+      // The page follows the share it names; a snapshot for another one means the link changed.
       if (state.view !== null && state.view.shareId !== event.view.shareId) {
         return { ...state, ended: true };
       }
@@ -139,6 +140,22 @@ export function applyGuestStreamEvent(
     case "ended":
       return { ...state, ended: true };
   }
+}
+
+/**
+ * The rows the owner's timeline would show: a rolled-back run's rows and a cancelled queued
+ * message leave, as they do for the owner. Guests get no attempts, so only run status applies.
+ */
+export function visibleGuestItems(
+  items: ReadonlyArray<OrchestrationV2ProjectedTurnItem>,
+  runs: ReadonlyArray<GuestRun>,
+): ReadonlyArray<OrchestrationV2ProjectedTurnItem> {
+  const isVisible = createOrchestrationV2TurnItemVisibility({
+    runs,
+    attempts: [],
+    items: items.map((row) => row.item),
+  });
+  return items.filter((row) => isVisible(row.item));
 }
 
 const WORKING_RUN_STATUSES: ReadonlySet<GuestRun["status"]> = new Set([

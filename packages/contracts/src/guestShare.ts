@@ -38,7 +38,7 @@ export const ThreadGuestMessage = Schema.Struct({
   text: Schema.String,
   status: ThreadGuestMessageStatus,
   submittedAt: IsoDateTime,
-  /** Stored as pending uploads until the owner sends the message; absent on older messages. */
+  /** The thread's attachments, deleted if the message is dismissed. Absent on older messages. */
   attachments: Schema.optional(Schema.Array(ChatAttachment)),
 });
 export type ThreadGuestMessage = typeof ThreadGuestMessage.Type;
@@ -96,8 +96,9 @@ export class GuestShareCreateError extends Schema.TaggedError<GuestShareCreateEr
   }
 }
 
-// The name lands in the agent's attribution line, so it must stay one plain line.
-const NAME_BREAKING_CHARACTER = /[\p{Cc}\p{Zl}\p{Zp}]/u;
+// The name lands in the agent's attribution line, so it must stay one plain line, and the owner
+// reads it, so direction overrides cannot make it look like another name.
+const NAME_BREAKING_CHARACTER = /[\p{Cc}\p{Zl}\p{Zp}\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/u;
 
 export const GuestRedeemRequest = Schema.Struct({
   credential: TrimmedNonEmptyString,
@@ -115,8 +116,8 @@ export type GuestRedeemRequest = typeof GuestRedeemRequest.Type;
  * `file` part; text can be empty when files are attached.
  */
 export const GuestSubmitRequest = Schema.Struct({
-  /** The share the page shows. One cookie serves every link on a host, so a newer link redeemed
-      in another tab must not receive this page's message. */
+  /** The share the page shows, so a message from a page for a replaced link is refused instead
+      of reaching the new one. */
   shareId: GuestShareId,
   text: TrimmedString.check(Schema.isMaxLength(GUEST_MESSAGE_MAX_LENGTH)),
 });

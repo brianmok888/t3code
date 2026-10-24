@@ -59,6 +59,7 @@ import {
   type GuestStreamState,
   parseGuestStreamEvent,
   unplacedGuestMessages,
+  visibleGuestItems,
 } from "./guestStream.logic";
 
 interface GuestEntry {
@@ -125,7 +126,7 @@ const decodeErrorBody = Schema.decodeUnknownOption(Schema.Struct({ message: Sche
 
 /** Resolves to null on success, or to a message the guest can read. */
 async function postGuest(
-  path: "redeem" | "messages",
+  path: "redeem" | `messages?${string}`,
   body: typeof GuestRedeemRequest.Encoded | FormData,
 ): Promise<string | null> {
   try {
@@ -359,9 +360,10 @@ function GuestThread({
   const { resolvedTheme } = useTheme();
   // The guest's own sent files load from the guest route; the owner's never reach this page.
   // The compiler keeps the map until the items change, so entries are not rebuilt every render.
-  const attachmentUrlById = guestAttachmentUrlsById(shareId, items);
+  const visibleItems = visibleGuestItems(items, runs);
+  const attachmentUrlById = guestAttachmentUrlsById(shareId, visibleItems);
   const entries = useIncrementalTimelineEntries(threadKey, {
-    visibleTurnItems: items,
+    visibleTurnItems: visibleItems,
     optimisticMessages: NO_OPTIMISTIC_MESSAGES,
     attachmentUrlById,
   });
@@ -540,8 +542,6 @@ interface StagedFile {
   readonly file: File;
 }
 
-let nextStagedFileKey = 0;
-
 /** A staged image's thumbnail; its object URL lives as long as the element. */
 function StagedImage({ file }: { readonly file: File }) {
   return (
@@ -570,12 +570,13 @@ function GuestComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nextFileKey = useRef(0);
   const { resolvedTheme } = useTheme();
   const addFiles = (added: ReadonlyArray<File>) => {
     if (added.length === 0) return;
     const next = [
       ...files,
-      ...added.map((file) => ({ key: `staged-${nextStagedFileKey++}`, file })),
+      ...added.map((file) => ({ key: `staged-${nextFileKey.current++}`, file })),
     ];
     const problem = guestFilesProblem(next.map((staged) => staged.file));
     setError(problem);
@@ -590,7 +591,10 @@ function GuestComposer({
     form.append("shareId", shareId);
     form.append("text", trimmed);
     for (const staged of sentFiles) form.append("file", staged.file, staged.file.name);
-    const failure = await postGuest("messages", form);
+    const failure = await postGuest(
+      `messages?${GUEST_SHARE_PARAM}=${encodeURIComponent(shareId)}`,
+      form,
+    );
     setSending(false);
     setError(failure);
     // Keep anything typed or attached while the request was in flight.

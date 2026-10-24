@@ -247,3 +247,97 @@ it.effect("keeps a queued guest message unchanged when the owner tries to edit i
     assert.equal(message?.context?.guest?.text, "Why?");
   }).pipe(Effect.provide(layerTest)),
 );
+
+it.effect("shows a guest message as dismissed when the owner cancels its queued send", () =>
+  Effect.gen(function* () {
+    const orchestrator = yield* setup;
+    const projections = yield* ProjectionStore.ProjectionStoreV2;
+    yield* orchestrator.dispatch({
+      type: "message.dispatch",
+      commandId: CommandId.make("owner-first"),
+      threadId,
+      messageId: MessageId.make("owner-first"),
+      text: "Start",
+      attachments: [],
+      dispatchMode: { type: "defer_start" },
+      createdBy: "user",
+      creationSource: "web",
+    });
+    yield* orchestrator.dispatch({
+      type: "thread.guest-share.redeem",
+      commandId: CommandId.make("redeem"),
+      threadId,
+      shareId,
+      guestName: "Sam",
+    });
+    yield* orchestrator.dispatch({
+      type: "thread.guest-message.submit",
+      commandId: CommandId.make("submit"),
+      threadId,
+      shareId,
+      guestMessageId,
+      text: "Why?",
+    });
+    yield* orchestrator.dispatch({
+      type: "message.dispatch",
+      commandId: CommandId.make("send-queued"),
+      threadId,
+      messageId: MessageId.make("send-queued"),
+      guestMessageId,
+      text: "",
+      attachments: [],
+      dispatchMode: { type: "queue_after_active" },
+      createdBy: "user",
+      creationSource: "web",
+    });
+    const queued = (yield* projections.getThreadProjection(threadId)).runs.find(
+      (run) => run.status === "queued",
+    );
+    assert.isDefined(queued);
+    yield* orchestrator.dispatch({
+      type: "queued-run.cancel",
+      commandId: CommandId.make("cancel"),
+      threadId,
+      runId: queued.id,
+    });
+    const { thread } = yield* projections.getThreadProjection(threadId);
+    assert.equal(
+      thread.guestShare?.messages.find((message) => message.id === guestMessageId)?.status,
+      "dismissed",
+    );
+  }).pipe(Effect.provide(layerTest)),
+);
+
+it.effect("brings a settled thread back when its guest sends a request", () =>
+  Effect.gen(function* () {
+    const orchestrator = yield* setup;
+    const projections = yield* ProjectionStore.ProjectionStoreV2;
+    yield* orchestrator.dispatch({
+      type: "thread.guest-share.redeem",
+      commandId: CommandId.make("redeem"),
+      threadId,
+      shareId,
+      guestName: "Sam",
+    });
+    yield* orchestrator.dispatch({
+      type: "thread.settle",
+      commandId: CommandId.make("settle"),
+      threadId,
+    });
+    assert.equal(
+      (yield* projections.getThreadProjection(threadId)).thread.settledOverride,
+      "settled",
+    );
+    yield* orchestrator.dispatch({
+      type: "thread.guest-message.submit",
+      commandId: CommandId.make("submit"),
+      threadId,
+      shareId,
+      guestMessageId,
+      text: "Why?",
+    });
+    const { thread } = yield* projections.getThreadProjection(threadId);
+    assert.isNull(thread.settledOverride);
+    assert.isNull(thread.settledAt);
+  }).pipe(Effect.provide(layerTest)),
+);

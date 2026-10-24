@@ -25,6 +25,7 @@ import {
   createAttachmentId,
   resolveAttachmentPath,
   resolveAttachmentPathById,
+  sweepStalePendingAttachments,
 } from "../attachmentStore.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import { CloudManagedEndpointRuntime } from "../cloud/ManagedEndpointRuntime.ts";
@@ -260,7 +261,7 @@ it.effect("refuses guest requests once T3 Connect no longer serves the link's ho
   }).pipe(Effect.provide(layerTest)),
 );
 
-it.effect("ends an open guest stream when T3 Connect stops serving the link's host", () =>
+it.effect("closes an open guest stream when T3 Connect stops serving the link's host", () =>
   Effect.gen(function* () {
     const { guestShares, credential } = yield* shareThread;
     const { token: session } = yield* guestShares.redeem({ credential, name: "Sam" });
@@ -269,11 +270,51 @@ it.effect("ends an open guest stream when T3 Connect stops serving the link's ho
     );
     yield* Ref.set(hostname, null);
     yield* TestClock.adjust("30 seconds");
+    // No `ended`: the browser reconnects, and the host check refuses it while Connect is gone.
     const received = Array.from(yield* Fiber.join(collecting));
     assert.deepEqual(
       received.map((event) => event.type),
-      ["snapshot", "ended"],
+      ["snapshot"],
     );
+    assert.isTrue(Exit.isFailure(yield* Effect.exit(guestShares.stream(session))));
+    yield* Ref.set(hostname, "env.t3.test");
+    assert.isTrue(Exit.isSuccess(yield* Effect.exit(guestShares.stream(session))));
+  }).pipe(Effect.provide(layerTest)),
+);
+
+it.effect("ends an open guest stream when the link expires", () =>
+  Effect.gen(function* () {
+    const { guestShares, credential } = yield* shareThread;
+    const { token: session } = yield* guestShares.redeem({ credential, name: "Sam" });
+    const collecting = yield* Stream.runCollect(yield* guestShares.stream(session)).pipe(
+      Effect.forkChild,
+    );
+    yield* TestClock.adjust("25 hours");
+    const received = Array.from(yield* Fiber.join(collecting));
+    assert.equal(received.at(-1)?.type, "ended");
+  }).pipe(Effect.provide(layerTest)),
+);
+
+it.effect("shows the guest the thread's new model", () =>
+  Effect.gen(function* () {
+    const { orchestrator, guestShares, credential } = yield* shareThread;
+    const { token: session } = yield* guestShares.redeem({ credential, name: "Sam" });
+    const events = yield* guestShares.stream(session);
+    yield* orchestrator.dispatch({
+      type: "thread.model-selection.set",
+      commandId: CommandId.make("switch-model"),
+      threadId,
+      modelSelection: { instanceId, model: "gpt-5.2-codex" },
+    });
+    yield* orchestrator.dispatch({
+      type: "thread.guest-share.close",
+      commandId: CommandId.make("close-after-switch"),
+      threadId,
+    });
+    const views = Array.from(yield* Stream.runCollect(events)).flatMap((event) =>
+      event.type === "view" ? [event.view.model.name] : [],
+    );
+    assert.include(views, "gpt-5.2-codex");
   }).pipe(Effect.provide(layerTest)),
 );
 
@@ -326,14 +367,11 @@ const png = (name: string, sizeBytes = PNG.length) => {
   return { name, contentType: "image/png", bytes };
 };
 
-/** Every stored pending upload, by id. */
-const storedPendingFiles = Effect.gen(function* () {
+/** Every stored attachment file. */
+const storedFiles = Effect.gen(function* () {
   const { attachmentsDir } = yield* ServerConfig.ServerConfig;
   const fileSystem = yield* FileSystem.FileSystem;
-  const entries = yield* fileSystem
-    .readDirectory(attachmentsDir)
-    .pipe(Effect.orElseSucceed(() => []));
-  return entries.filter((entry) => entry.startsWith("pending-"));
+  return yield* fileSystem.readDirectory(attachmentsDir).pipe(Effect.orElseSucceed(() => []));
 });
 
 const joinedGuest = Effect.gen(function* () {
@@ -354,7 +392,7 @@ const waitingMessages = Effect.gen(function* () {
 it.effect("refuses too many files, too many bytes, and images that are not what they say", () =>
   Effect.gen(function* () {
     const { guestShares, session, shareId } = yield* joinedGuest;
-    const before = yield* storedPendingFiles;
+    const before = yield* storedFiles;
     const refused = [
       ["too_many_files", [1, 2, 3, 4, 5].map((index) => png(`${index}.png`))],
       ["too_large", [png("big.png", 10 * MIB + 1)]],
@@ -375,7 +413,7 @@ it.effect("refuses too many files, too many bytes, and images that are not what 
       assert.equal(error.reason, reason);
     }
     // Nothing is kept from a refused message, and no message waits.
-    assert.deepEqual(yield* storedPendingFiles, before);
+    assert.deepEqual(yield* storedFiles, before);
     assert.deepEqual(yield* waitingMessages, []);
 
     yield* guestShares.submit(
@@ -383,7 +421,12 @@ it.effect("refuses too many files, too many bytes, and images that are not what 
       { shareId, text: "" },
       yield* uploadsOf([
         png("screen.png"),
-        { name: "notes.html", contentType: "text/html", bytes: new TextEncoder().encode("<b>") },
+        // A direction override would make this name read as a PDF.
+        {
+          name: "notes\u202Efdp.html",
+          contentType: "text/html",
+          bytes: new TextEncoder().encode("<b>"),
+        },
       ]),
     );
     const [message] = yield* waitingMessages;
@@ -396,7 +439,7 @@ it.effect("refuses too many files, too many bytes, and images that are not what 
       })),
       [
         { type: "image", name: "screen.png", mimeType: "image/png", sizeBytes: PNG.length },
-        { type: "file", name: "notes.html", mimeType: "text/html", sizeBytes: 3 },
+        { type: "file", name: "notes_fdp.html", mimeType: "text/html", sizeBytes: 3 },
       ],
     );
   }).pipe(Effect.scoped, Effect.provide(layerTest)),
@@ -439,7 +482,7 @@ it.effect("deletes a waiting message's files when the owner dismisses it or stop
     );
     const [first, second] = yield* waitingMessages;
     const fileOf = (message: typeof first) => message!.attachments![0]!.id;
-    const stored = yield* storedPendingFiles;
+    const stored = yield* storedFiles;
     assert.isTrue(stored.some((entry) => entry.startsWith(fileOf(first))));
 
     yield* orchestrator.dispatch({
@@ -449,7 +492,7 @@ it.effect("deletes a waiting message's files when the owner dismisses it or stop
       guestMessageId: first!.id,
     });
     yield* worker.drain();
-    const afterDismiss = yield* storedPendingFiles;
+    const afterDismiss = yield* storedFiles;
     assert.isFalse(afterDismiss.some((entry) => entry.startsWith(fileOf(first))));
     assert.isTrue(afterDismiss.some((entry) => entry.startsWith(fileOf(second))));
     // A dismissed message's file is no longer the guest's to load.
@@ -463,8 +506,31 @@ it.effect("deletes a waiting message's files when the owner dismisses it or stop
       threadId,
     });
     yield* worker.drain();
-    assert.isFalse((yield* storedPendingFiles).some((entry) => entry.startsWith(fileOf(second))));
+    assert.isFalse((yield* storedFiles).some((entry) => entry.startsWith(fileOf(second))));
   }).pipe(Effect.scoped, Effect.provide(layerTest)),
+);
+
+it.effect.each(["thread.archive", "thread.delete"] as const)(
+  "deletes a waiting message's files on %s",
+  (type) =>
+    Effect.gen(function* () {
+      const { orchestrator, guestShares, session, shareId } = yield* joinedGuest;
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const before = yield* storedFiles;
+      yield* guestShares.submit(
+        session,
+        { shareId, text: "Look" },
+        yield* uploadsOf([png("a.png")]),
+      );
+      assert.equal((yield* storedFiles).length, before.length + 1);
+      yield* orchestrator.dispatch({
+        type,
+        commandId: CommandId.make(`${type}-with-files`),
+        threadId,
+      });
+      yield* worker.drain();
+      assert.deepEqual(yield* storedFiles, before);
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
 );
 
 it.effect("sends a guest's files as the guest's message and keeps them the guest's to load", () =>
@@ -481,14 +547,11 @@ it.effect("sends a guest's files as the guest's message and keeps them the guest
     const served = yield* guestShares.attachment(session, pending[0]!.id);
     assert.equal(served.attachment.mimeType, "image/png");
 
-    // Intake copies the files into the thread before the owner's Send; here, by hand.
+    // The day-old pending-upload sweep leaves a waiting guest's files alone.
     const { attachmentsDir } = yield* ServerConfig.ServerConfig;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const copied = { ...pending[0]!, id: ChatAttachmentId.make(createAttachmentId(threadId)!) };
-    yield* fileSystem.copyFile(
-      resolveAttachmentPath({ attachmentsDir, attachment: pending[0]! })!,
-      resolveAttachmentPath({ attachmentsDir, attachment: copied })!,
-    );
+    // Any pending upload counts as stale at the end of time.
+    sweepStalePendingAttachments({ attachmentsDir, nowMs: Number.MAX_SAFE_INTEGER });
+    const copied = pending[0]!;
     yield* orchestrator.dispatch({
       type: "message.dispatch",
       commandId: CommandId.make("send-guest-files"),

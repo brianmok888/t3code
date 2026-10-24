@@ -233,7 +233,7 @@ export function GuestPendingMessages({
   });
   const [busyIds, setBusyIds] = useState<ReadonlySet<GuestMessageId>>(new Set());
   const pending = share?.messages.filter((message) => message.status === "pending") ?? [];
-  // The files wait as pending uploads, which the owner's environment serves like any other.
+  // The files are the thread's attachments, which the owner's environment serves like any other.
   const images = pending.flatMap((message) => message.attachments ?? []).filter(isImageAttachment);
   const imageUrls = useAssetUrls(
     threadRef.environmentId,

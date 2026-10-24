@@ -43,15 +43,21 @@ const pendingAttachments = (share: ThreadGuestShare | null) =>
   ) ?? [];
 
 /**
- * Stored files a share change leaves behind: those of waiting messages that were sent, dismissed,
- * or dropped with the share. A sent message's files were copied into the thread first.
+ * Stored files a share change leaves behind: those of waiting messages that were dismissed or
+ * dropped with the share. A sent message keeps its files, which its thread message now holds.
  */
 export function releasedGuestAttachmentIds(
   before: ThreadGuestShare | null,
   after: ThreadGuestShare | null,
 ): ReadonlyArray<string> {
   const kept = new Set(
-    after?.id === before?.id ? pendingAttachments(after).map((attachment) => attachment.id) : [],
+    after !== null && after.id === before?.id
+      ? after.messages.flatMap((message) =>
+          message.status === "dismissed"
+            ? []
+            : (message.attachments ?? []).map((attachment) => attachment.id),
+        )
+      : [],
   );
   return pendingAttachments(before)
     .map((attachment) => attachment.id)
@@ -154,7 +160,7 @@ export function decideGuestShareCommand(input: {
       if (attachments.length > 0 && pendingBytes > GUEST_PENDING_ATTACHMENT_BYTES_LIMIT) {
         return Result.fail(GUEST_FAILURE.filesBusy);
       }
-      return withShare({
+      const guestShare: ThreadGuestShare = {
         ...share,
         messages: trimResolved([
           ...share.messages,
@@ -166,7 +172,18 @@ export function decideGuestShareCommand(input: {
             ...(attachments.length === 0 ? {} : { attachments }),
           },
         ]),
-      });
+      };
+      // A request needs the owner, so a settled thread comes back as a new message brings it.
+      return thread.settledOverride === "settled"
+        ? Result.succeed({
+            ...thread,
+            guestShare,
+            settledOverride: null,
+            settledAt: null,
+            unsettledAt: now,
+            updatedAt: now,
+          })
+        : withShare(guestShare);
     }
     case "thread.guest-message.dismiss": {
       if (share === null) return Result.fail("This thread has no guest link.");
@@ -206,6 +223,32 @@ export function decideGuestMessageSend(input: {
     text: `Message from guest ${name}, sent by the owner:\n\n${guestText}`,
     guest: { guestMessageId: input.guestMessageId, name, text: guestText, shareId: share.id },
   }));
+}
+
+/**
+ * The owner cancelled a queued send, so the agent never got the message. It shows as dismissed,
+ * which the guest can see, instead of sent with no reply ever coming. A share that changed since
+ * the send is left alone.
+ */
+export function guestShareAfterCancelledSend(
+  thread: OrchestrationV2AppThread,
+  guest: Pick<GuestMessageAttribution, "guestMessageId" | "shareId">,
+  now: DateTime.Utc,
+): OrchestrationV2AppThread {
+  const share = thread.guestShare ?? null;
+  if (share === null || share.id !== guest.shareId) return thread;
+  const message = share.messages.find((candidate) => candidate.id === guest.guestMessageId);
+  if (message?.status !== "sent") return thread;
+  return {
+    ...thread,
+    guestShare: {
+      ...share,
+      messages: share.messages.map((candidate) =>
+        candidate.id === guest.guestMessageId ? { ...candidate, status: "dismissed" } : candidate,
+      ),
+    },
+    updatedAt: now,
+  };
 }
 
 /** Guest attribution comes only from `decideGuestMessageSend`; a client cannot claim it. */

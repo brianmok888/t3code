@@ -168,11 +168,13 @@ describe("GuestPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
     await vi.waitFor(() =>
       expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/guest/messages",
+        `/api/guest/messages?share=${SHARE_ID}`,
         expect.objectContaining({ method: "POST" }),
       ),
     );
-    const body = fetchSpy.mock.calls.find(([url]) => url === "/api/guest/messages")?.[1]?.body;
+    const body = fetchSpy.mock.calls.find(
+      ([url]) => url === `/api/guest/messages?share=${SHARE_ID}`,
+    )?.[1]?.body;
     expect(body).toBeInstanceOf(FormData);
     const form = body as FormData;
     expect(form.get("shareId")).toBe(SHARE_ID);

@@ -74,7 +74,7 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
       creationSource: "web",
       messageId: "message",
       inputIntent: "turn_start",
-      text: "Look at @terminal",
+      text: `Look at @terminal and ${ROOT}/src/a.ts`,
       context: { version: 1, records: [{ kind: "terminal", contextId: "c", output: "TOKEN=1" }] },
       attachments: [
         { type: "image", id: "a", name: "screen.png", mimeType: "image/png", sizeBytes: 1 },
@@ -86,7 +86,7 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
       creationSource: "web",
       messageId: "message",
       inputIntent: "turn_start",
-      text: "Look at @terminal",
+      text: "Look at @terminal and src/a.ts",
       attachments: [],
     },
   ],
@@ -98,11 +98,11 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
       creationSource: "web",
       messageId: "message",
       inputIntent: "turn_start",
-      text: "Message from guest Sam, sent by the owner:\n\nWhy?",
+      text: `Message from guest Sam, sent by the owner:\n\nWhy ${HOME}/notes?`,
       context: {
         version: 1,
         records: [],
-        guest: { guestMessageId: "guest-message:one", name: "Sam", text: "Why?" },
+        guest: { guestMessageId: "guest-message:one", name: "Sam", text: `Why ${HOME}/notes?` },
       },
       attachments: [
         {
@@ -121,11 +121,11 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
       creationSource: "web",
       messageId: "message",
       inputIntent: "turn_start",
-      text: "Message from guest Sam, sent by the owner:\n\nWhy?",
+      text: "Message from guest Sam, sent by the owner:\n\nWhy ~/notes?",
       context: {
         version: 1,
         records: [],
-        guest: { guestMessageId: "guest-message:one", name: "Sam", text: "Why?" },
+        guest: { guestMessageId: "guest-message:one", name: "Sam", text: "Why ~/notes?" },
       },
       attachments: [
         { type: "image", id: "thread-a", name: "screen.png", mimeType: "image/png", sizeBytes: 1 },
@@ -137,16 +137,21 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
     {
       type: "assistant_message",
       messageId: "message",
-      text: "Hel",
+      text: `Edited [a.ts](${ROOT}/src/a.ts:12)`,
       streaming: true,
       attachments: [{ type: "image", id: "a", name: "x.png", mimeType: "image/png", sizeBytes: 1 }],
     },
-    { type: "assistant_message", messageId: "message", text: "Hel", streaming: true },
+    {
+      type: "assistant_message",
+      messageId: "message",
+      text: "Edited [a.ts](src/a.ts:12)",
+      streaming: true,
+    },
   ],
   [
     "a plan",
-    { type: "proposed_plan", planId: "plan", markdown: "1. Fix it", streaming: false },
-    { type: "proposed_plan", planId: "plan", markdown: "1. Fix it", streaming: false },
+    { type: "proposed_plan", planId: "plan", markdown: `1. Fix ${ROOT}/a.ts`, streaming: false },
+    { type: "proposed_plan", planId: "plan", markdown: "1. Fix a.ts", streaming: false },
   ],
   [
     "the agent's question, without the owner's answer",
@@ -157,8 +162,8 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
         {
           id: "q",
           header: "Cache",
-          question: "Keep it?",
-          options: [{ label: "Yes", description: "Keep", preview: "secret preview" }],
+          question: `Keep ${HOME}/.cache?`,
+          options: [{ label: "Yes", description: `Keep ${ROOT}/tmp`, preview: "secret preview" }],
           initialAnswer: "Yes",
         },
       ],
@@ -171,8 +176,8 @@ const SHOWN: ReadonlyArray<readonly [string, Record<string, unknown>, Record<str
         {
           id: "q",
           header: "Cache",
-          question: "Keep it?",
-          options: [{ label: "Yes", description: "Keep" }],
+          question: "Keep ~/.cache?",
+          options: [{ label: "Yes", description: "Keep tmp" }],
         },
       ],
     },
@@ -367,6 +372,26 @@ describe("projectTurnItemForGuest", () => {
     ["another thread's message", { type: "user_message", createdBy: "user", senderThreadId: "t" }],
     ["an agent's message", { type: "user_message", createdBy: "agent" }],
     ["a workflow script", { type: "user_message", createdBy: "user", workflowScript: true }],
+    [
+      "the owner's feedback on an approval",
+      {
+        type: "user_message",
+        createdBy: "user",
+        creationSource: "server",
+        messageId: "approval-feedback:request",
+        text: "No, the token is sk-live-1",
+      },
+    ],
+    [
+      "the owner's answer to the agent's question",
+      {
+        type: "user_message",
+        createdBy: "user",
+        creationSource: "server",
+        messageId: "async-answer:request",
+        text: "Use the staging key",
+      },
+    ],
     ["a secret request", { type: "secret_request", label: "API key", reason: "deploy" }],
     ["a fork", { type: "fork", targetThreadId: "thread:fork" }],
     ["a handoff", { type: "handoff", summary: "everything so far" }],
@@ -403,6 +428,21 @@ describe("projectTurnItemForGuest", () => {
       roots,
     );
     expect(outside).toMatchObject({ fileName: "key.pem" });
+  });
+
+  it("rewrites a root only where a path starts", () => {
+    const command = (input: string, at: typeof roots) =>
+      projectTurnItemForGuest(item({ type: "command_execution", input }), at);
+    expect(command(`cat /private${ROOT}/.env`, roots)).toMatchObject({
+      input: `cat /private${ROOT}/.env`,
+    });
+    expect(command(`open file://${ROOT}/a.ts`, roots)).toMatchObject({
+      input: "open file://a.ts",
+    });
+    const windows = guestPathRoots(["C:\\Users\\owner\\proj"], "C:\\Users\\owner");
+    expect(command("type C:/Users/owner/proj/.env c:\\users\\owner\\x", windows)).toMatchObject({
+      input: "type .env ~/x",
+    });
   });
 });
 

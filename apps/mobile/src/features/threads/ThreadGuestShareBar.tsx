@@ -8,8 +8,8 @@ import {
   AuthOrchestrationOperateScope,
   type ChatAttachment,
   isGuestShareExpired,
-  type GuestMessageId,
   type ScopedThreadRef,
+  type ThreadGuestMessage,
   type ThreadGuestShare,
 } from "@t3tools/contracts";
 import { Atom } from "effect/reactivity";
@@ -38,18 +38,12 @@ function guestShareAtom(ref: ScopedThreadRef) {
   });
 }
 
-function useThreadGuestShare(threadRef: ScopedThreadRef | null): ThreadGuestShare | null {
+export function useThreadGuestShare(threadRef: ScopedThreadRef | null): ThreadGuestShare | null {
   const shareAtom = useMemo(
     () => (threadRef === null ? NO_GUEST_SHARE_ATOM : guestShareAtom(threadRef)),
     [threadRef],
   );
   return useAtomValue(shareAtom);
-}
-
-/** True while a guest message waits for the owner; the feed shows it, so the thread is not empty. */
-export function useHasPendingGuestMessages(threadRef: ScopedThreadRef | null): boolean {
-  const share = useThreadGuestShare(threadRef);
-  return share?.messages.some((message) => message.status === "pending") ?? false;
 }
 
 function alertOnFailure(failureTitle: string, result: AtomCommandResult<unknown, unknown>) {
@@ -62,7 +56,7 @@ function alertOnFailure(failureTitle: string, result: AtomCommandResult<unknown,
 /**
  * Owner controls for a guest link, above the composer: who the link is for and a way to stop
  * sharing. Links are created on web. Waiting messages show in the feed, see
- * `ThreadGuestPendingMessages`.
+ * `ThreadGuestPendingMessage`.
  */
 export function ThreadGuestShareBar(props: {
   readonly threadRef: ScopedThreadRef | null;
@@ -120,45 +114,39 @@ export function ThreadGuestShareBar(props: {
 }
 
 /**
- * A guest's messages wait at the end of the feed until the owner sends or dismisses each one.
- * Sent ones then show in the feed as user messages with the guest's name.
+ * One guest message waiting at the end of the feed until the owner sends or dismisses it. Sent
+ * ones then show in the feed as user messages with the guest's name.
  */
-export function ThreadGuestPendingMessages(props: {
+export function ThreadGuestPendingMessage(props: {
   readonly threadRef: ScopedThreadRef;
+  readonly guestName: string;
+  readonly message: ThreadGuestMessage;
   readonly bubbleMaxWidth: number | `${number}%`;
   /** The feed's own attachment rendering, so the owner sees the files before Send. */
   readonly renderAttachments: (attachments: ReadonlyArray<ChatAttachment>) => ReactNode;
 }) {
-  const { threadRef } = props;
-  const share = useThreadGuestShare(threadRef);
+  const { threadRef, guestName, message } = props;
   const canOperate = useEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope);
   const resolveGuestMessage = useAtomCommand(
     threadEnvironment.resolveGuestMessage,
     "resolve guest message",
   );
-  // One request at a time per message: a second tap while the first is in flight would double-send.
-  const [busyIds, setBusyIds] = useState<ReadonlySet<GuestMessageId>>(new Set());
-  const pending = share?.messages.filter((message) => message.status === "pending") ?? [];
-  if (share === null || pending.length === 0) return null;
-  const guestName = share.guestName ?? "Guest";
+  // One request at a time: a second tap while the first is in flight would double-send.
+  const [busy, setBusy] = useState(false);
 
-  const resolve = async (guestMessageId: GuestMessageId, decision: "send" | "dismiss") => {
-    if (busyIds.has(guestMessageId)) return;
-    setBusyIds((ids) => new Set(ids).add(guestMessageId));
+  const resolve = async (decision: "send" | "dismiss") => {
+    if (busy) return;
+    setBusy(true);
     const result = await resolveGuestMessage({
       environmentId: threadRef.environmentId,
       input: {
         threadId: threadRef.threadId,
-        guestMessageId,
+        guestMessageId: message.id,
         decision,
         creationSource: "mobile",
       },
     });
-    setBusyIds((ids) => {
-      const next = new Set(ids);
-      next.delete(guestMessageId);
-      return next;
-    });
+    setBusy(false);
     alertOnFailure(
       decision === "send" ? "Could not send guest message" : "Could not dismiss guest message",
       result,
@@ -166,44 +154,34 @@ export function ThreadGuestPendingMessages(props: {
   };
 
   return (
-    <View className="gap-4 pb-5">
-      {pending.map((message) => {
-        const busy = busyIds.has(message.id);
-        return (
-          <View key={message.id} className="items-end">
-            <GuestMessageName name={guestName} />
-            <View
-              className={GUEST_PENDING_BUBBLE_CLASS_NAME}
-              style={{ maxWidth: props.bubbleMaxWidth }}
-            >
-              {message.text ? (
-                <Text selectable className="text-base text-foreground">
-                  {message.text}
-                </Text>
-              ) : null}
-              {props.renderAttachments(message.attachments ?? [])}
-            </View>
-            {canOperate ? (
-              <View className="mt-1.5 flex-row gap-2">
-                <Button
-                  label="Dismiss"
-                  tone="secondary"
-                  accessibilityLabel={`Dismiss message from ${guestName}`}
-                  disabled={busy}
-                  onPress={() => void resolve(message.id, "dismiss")}
-                />
-                <Button
-                  label="Send"
-                  tone="primary"
-                  accessibilityLabel={`Send message from ${guestName}`}
-                  disabled={busy}
-                  onPress={() => void resolve(message.id, "send")}
-                />
-              </View>
-            ) : null}
-          </View>
-        );
-      })}
+    <View className="items-end pb-5">
+      <GuestMessageName name={guestName} />
+      <View className={GUEST_PENDING_BUBBLE_CLASS_NAME} style={{ maxWidth: props.bubbleMaxWidth }}>
+        {message.text ? (
+          <Text selectable className="text-base text-foreground">
+            {message.text}
+          </Text>
+        ) : null}
+        {props.renderAttachments(message.attachments ?? [])}
+      </View>
+      {canOperate ? (
+        <View className="mt-1.5 flex-row gap-2">
+          <Button
+            label="Dismiss"
+            tone="secondary"
+            accessibilityLabel={`Dismiss message from ${guestName}`}
+            disabled={busy}
+            onPress={() => void resolve("dismiss")}
+          />
+          <Button
+            label="Send"
+            tone="primary"
+            accessibilityLabel={`Send message from ${guestName}`}
+            disabled={busy}
+            onPress={() => void resolve("send")}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

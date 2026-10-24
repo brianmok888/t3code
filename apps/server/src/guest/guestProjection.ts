@@ -65,14 +65,24 @@ function guestPath(path: string, roots: GuestPathRoots): string {
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
-/** Rewrites the roots inside free text, such as a command or a search query. */
+const isWindowsPath = (path: string) => /^[A-Za-z]:[\\/]/u.test(path);
+
+/**
+ * Rewrites the roots inside free text, such as a command, a reply, or a title. Windows roots match
+ * with either separator and in any case, as Windows tools print them both ways.
+ */
 function guestText(text: string, roots: GuestPathRoots): string {
   let result = text;
   for (const { dir, as } of roots) {
-    if (!result.includes(dir)) continue;
-    // The root itself, or the root plus a separator, but not a sibling such as `<root>-old`.
+    const windows = isWindowsPath(dir);
+    if (!windows && !result.includes(dir)) continue;
+    const pattern = windows
+      ? dir.split(/[\\/]/u).map(escapeRegExp).join("[\\\\/]")
+      : escapeRegExp(dir);
+    // The root itself, or the root plus a separator, where a path starts: not a sibling such as
+    // `<root>-old`, and not the tail of a longer path such as `/private<root>`.
     result = result.replace(
-      new RegExp(`${escapeRegExp(dir)}(?:[\\\\/]|(?![\\w.-]))`, "gu"),
+      new RegExp(`(?<![\\w.~-])${pattern}(?:[\\\\/]|(?![\\w.-]))`, windows ? "giu" : "gu"),
       // `<root>/src` becomes `src` (or `~/src`); the root alone, or with only a trailing
       // separator, is `.` (or `~`).
       (match, offset: number, source: string) => {
@@ -120,14 +130,18 @@ const drop = () => null;
  * sees of it.
  */
 const GUEST_PROJECTORS: { readonly [T in OrchestrationV2TurnItem["type"]]: Projector<T> } = {
-  user_message: (item, base) => {
+  user_message: (item, base, roots) => {
     // Scheduled, cross-thread, agent-sent, and workflow messages can carry webhook bodies, other
-    // threads' results, or scripts, so only messages a person typed into this thread pass.
+    // threads' results, or scripts, so only messages a person typed into this thread pass. The
+    // owner's approval feedback and question answers are kept private like the requests' answers.
     if (
       item.createdBy !== "user" ||
       item.scheduledTaskId !== undefined ||
       item.senderThreadId !== undefined ||
-      item.workflowScript === true
+      item.workflowScript === true ||
+      (item.creationSource === "server" &&
+        (item.messageId.startsWith("approval-feedback:") ||
+          item.messageId.startsWith("async-answer:")))
     ) {
       return null;
     }
@@ -139,13 +153,17 @@ const GUEST_PROJECTORS: { readonly [T in OrchestrationV2TurnItem["type"]]: Proje
       creationSource: item.creationSource,
       messageId: item.messageId,
       inputIntent: item.inputIntent,
-      text: item.text,
+      text: guestText(item.text, roots),
       ...(guest === undefined
         ? {}
         : {
             context: {
               version: 1,
-              guest: { guestMessageId: guest.guestMessageId, name: guest.name, text: guest.text },
+              guest: {
+                guestMessageId: guest.guestMessageId,
+                name: guest.name,
+                text: guestText(guest.text, roots),
+              },
               records: [],
             },
           }),
@@ -168,34 +186,34 @@ const GUEST_PROJECTORS: { readonly [T in OrchestrationV2TurnItem["type"]]: Proje
             ),
     };
   },
-  assistant_message: (item, base) => ({
+  assistant_message: (item, base, roots) => ({
     ...base,
     type: "assistant_message",
     messageId: item.messageId,
-    text: item.text,
+    text: guestText(item.text, roots),
     streaming: item.streaming,
   }),
   // The text can quote anything the agent read, and a reasoning row without text is hidden in
   // the timeline, as the owner's empty ones are. The live Thinking row comes from the run state.
   reasoning: drop,
-  proposed_plan: (item, base) => ({
+  proposed_plan: (item, base, roots) => ({
     ...base,
     type: "proposed_plan",
     planId: item.planId,
-    markdown: item.markdown,
+    markdown: guestText(item.markdown, roots),
     streaming: item.streaming,
   }),
-  user_input_request: (item, base) => ({
+  user_input_request: (item, base, roots) => ({
     ...base,
     type: "user_input_request",
     requestId: item.requestId,
     questions: item.questions.map((question) => ({
       id: question.id,
-      header: question.header,
-      question: question.question,
+      header: guestText(question.header, roots),
+      question: guestText(question.question, roots),
       options: question.options.map((option) => ({
-        label: option.label,
-        description: option.description,
+        label: guestText(option.label, roots),
+        description: guestText(option.description, roots),
       })),
       ...(question.multiSelect === undefined ? {} : { multiSelect: question.multiSelect }),
     })),
@@ -460,12 +478,13 @@ export function guestThreadModel(
 export function guestShareView(
   thread: OrchestrationV2AppThread,
   model: GuestThreadModel,
+  roots: GuestPathRoots,
 ): GuestShareView | null {
   const share = thread.guestShare;
   if (!share || share.guestName === null) return null;
   return {
     shareId: share.id,
-    title: thread.title,
+    title: guestText(thread.title, roots),
     guestName: share.guestName,
     expiresAt: share.expiresAt,
     messages: share.messages,

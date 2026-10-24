@@ -16,7 +16,6 @@ import {
   ThreadId,
   type OrchestrationV2Run,
   type GuestTurnItem,
-  type ThreadGuestShare,
   type OrchestrationV2TurnItem,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -41,12 +40,11 @@ import {
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import {
   attachmentFileExtension,
-  createPendingAttachmentId,
+  createAttachmentId,
   resolveAttachmentPath,
   resolveAttachmentPathById,
   threadHtmlRenderAttachmentIds,
 } from "../attachmentStore.ts";
-import { sweepPendingAttachmentsOccasionally } from "../assets/AttachmentUpload.ts";
 import * as ServerConfig from "../config.ts";
 import { CloudManagedEndpointRuntime } from "../cloud/ManagedEndpointRuntime.ts";
 import { GUEST_FAILURE } from "../orchestration-v2/GuestShareDecider.ts";
@@ -164,7 +162,7 @@ export class GuestShareService extends Context.Service<
     >;
     /** Succeeds while the session can still open its share. */
     readonly check: (session: string) => Effect.Effect<void, GuestShareAccessError>;
-    /** Stores the guest's files as pending uploads and records the message with them. */
+    /** Stores the guest's files as the thread's attachments and records the message with them. */
     readonly submit: (
       session: string,
       request: GuestSubmitRequest,
@@ -216,8 +214,7 @@ const make = Effect.gen(function* () {
   const projects = yield* ProjectStore.ProjectStoreV2;
   const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
   const managedEndpoint = yield* CloudManagedEndpointRuntime;
-  const serverConfig = yield* ServerConfig.ServerConfig;
-  const { attachmentsDir } = serverConfig;
+  const { attachmentsDir } = yield* ServerConfig.ServerConfig;
   const fileSystem = yield* FileSystem.FileSystem;
   const crypto = yield* Crypto.Crypto;
   const secretStore = yield* ServerSecretStore.ServerSecretStore;
@@ -376,10 +373,12 @@ const make = Effect.gen(function* () {
     );
 
   /**
-   * Checks the files and copies them into the attachment store as pending uploads, which the
-   * owner's Send copies into the thread and the pending sweep removes after a day.
+   * Checks the files and stores them as the thread's attachments, so a message can wait longer
+   * than the day the pending-upload sweep allows. Send uses them as they are; dismissing the
+   * message or ending the share deletes them.
    */
   const storeUploads = Effect.fn("GuestShareService.storeUploads")(function* (
+    threadId: ThreadId,
     uploads: ReadonlyArray<GuestUpload>,
   ) {
     const inspected = yield* Effect.forEach(uploads, (upload) =>
@@ -398,22 +397,17 @@ const make = Effect.gen(function* () {
     );
     const classified = classifyGuestUploads(inspected);
     if (!classified.ok) return yield* new GuestShareAccessError({ reason: classified.reason });
-    yield* sweepPendingAttachmentsOccasionally.pipe(
-      Effect.provideService(ServerConfig.ServerConfig, serverConfig),
-    );
     const stored: Array<ChatAttachment> = [];
     yield* Effect.forEach(
       classified.attachments,
       (draft, index) =>
         Effect.gen(function* () {
-          const attachment: ChatAttachment = {
-            ...draft,
-            id: ChatAttachmentId.make(
-              createPendingAttachmentId(
-                draft.type === "file" ? attachmentFileExtension(draft.name) : undefined,
-              ),
-            ),
-          };
+          const id = createAttachmentId(
+            threadId,
+            draft.type === "file" ? attachmentFileExtension(draft.name) : undefined,
+          );
+          if (id === null) return yield* uploadFailed;
+          const attachment: ChatAttachment = { ...draft, id: ChatAttachmentId.make(id) };
           const path = resolveAttachmentPath({ attachmentsDir, attachment });
           if (path === null) return yield* uploadFailed;
           yield* fileSystem.makeDirectory(attachmentsDir, { recursive: true });
@@ -437,7 +431,7 @@ const make = Effect.gen(function* () {
     if (request.text === "" && uploads.length === 0) {
       return yield* new GuestShareAccessError({ reason: "empty" });
     }
-    const attachments = yield* storeUploads(uploads);
+    const attachments = yield* storeUploads(thread.id, uploads);
     yield* dispatchGuestCommand({
       type: "thread.guest-message.submit",
       commandId: yield* commandId("submit"),
@@ -478,7 +472,7 @@ const make = Effect.gen(function* () {
     // Read once; a provider configured mid-share shows after the guest reconnects.
     const providers = yield* providerRegistry.getProviders;
     const viewOf = (current: OrchestrationV2AppThread) =>
-      guestShareView(current, guestThreadModel(current.modelSelection, providers));
+      guestShareView(current, guestThreadModel(current.modelSelection, providers), roots);
     const domainItems = new Map(
       projection.visibleTurnItems.map((entry) => [entry.item.id, entry.item] as const),
     );
@@ -533,7 +527,9 @@ const make = Effect.gen(function* () {
             case "thread.deleted":
               return [ended];
             case "thread.guest-share-updated":
-            case "thread.metadata-updated": {
+            case "thread.metadata-updated":
+            case "thread.model-selection-updated":
+            case "thread.provider-switched": {
               thread = event.payload;
               if (thread.guestShare?.id !== share.id) return [ended];
               roots = guestPathRoots([thread.worktreePath, projectRoot], home);
@@ -550,12 +546,15 @@ const make = Effect.gen(function* () {
         Stream.groupedWithin(LIVE_COALESCE_MAX_EVENTS, LIVE_COALESCE_WINDOW),
         Stream.map(coalesceGuestEvents),
         Stream.flattenIterable,
-        Stream.catchCause(() => Stream.make(ended)),
+        // A failed read closes the response without `ended`: the browser reconnects, and
+        // `authorize` decides whether the link still works.
+        Stream.catchCause(() => Stream.empty),
       );
     const untilExpiry = Effect.sleep(
       Math.max(0, Date.parse(share.expiresAt) - DateTime.toEpochMillis(yield* DateTime.now)),
     );
-    // Unlinking T3 Connect must also end streams that are already open.
+    // Unlinking T3 Connect must also close streams that are already open. Like a failed read, it
+    // closes quietly, so a tunnel that comes back on the same host keeps the guest in.
     const untilHostLost = connectHostname.pipe(
       Effect.repeat({
         schedule: Schedule.spaced(HOST_RECHECK_INTERVAL),
@@ -571,13 +570,15 @@ const make = Effect.gen(function* () {
         return domain === undefined ? item : withOwnGuestFiles(item, domain, share.id);
       }),
     };
-    return Stream.concat(
-      Stream.make(snapshotEvent),
+    return Stream.make(snapshotEvent).pipe(
       Stream.concat(
-        live.pipe(Stream.interruptWhen(Effect.race(untilExpiry, untilHostLost))),
-        Stream.make(ended),
+        Stream.merge(live, Stream.fromEffect(Effect.as(untilExpiry, ended)), {
+          haltStrategy: "either",
+        }),
       ),
-    ).pipe(Stream.takeUntil((event) => event.type === "ended"));
+      Stream.takeUntil((event) => event.type === "ended"),
+      Stream.interruptWhen(untilHostLost),
+    );
   });
 
   const unavailable = new GuestShareAccessError({ reason: "unavailable" });

@@ -23,6 +23,7 @@ import {
   inviteShareId,
   parseGuestStreamEvent,
   unplacedGuestMessages,
+  visibleGuestItems,
   type GuestStreamState,
 } from "./guestStream.logic";
 
@@ -114,7 +115,7 @@ describe("applyGuestStreamEvent", () => {
     });
   });
 
-  it("ends when the shared cookie starts opening another link", () => {
+  it("ends when a snapshot names another link than the page's", () => {
     const state = apply([
       snapshot([]),
       snapshot([], { view: { ...view, shareId: GuestShareId.make("share-2") } }),
@@ -181,6 +182,18 @@ describe("applyGuestStreamEvent", () => {
 
   it("marks the stream ended", () => {
     expect(apply([snapshot([]), { type: "ended" }]).ended).toBe(true);
+  });
+});
+
+describe("visibleGuestItems", () => {
+  it("drops a run's rows once the owner rolls it back", () => {
+    const state = apply([
+      snapshot([reply("a1", "kept"), { ...reply("a2", "undone"), runId: RunId.make("run-2") }], {
+        runs: [run("run-1", 1, "completed"), run("run-2", 2, "completed")],
+      }),
+      { type: "run", run: run("run-2", 2, "rolled_back") },
+    ]);
+    expect(visibleGuestItems(state.items, state.runs).map((row) => row.item.id)).toEqual(["a1"]);
   });
 });
 

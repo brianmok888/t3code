@@ -46,10 +46,13 @@ const IMAGE_SIGNATURES: Readonly<Record<string, (header: Uint8Array) => boolean>
     startsWith(header, ascii("RIFF")) && startsWith(header, ascii("WEBP"), 8),
 };
 
-/** Control characters and separators would break the name in headers and on disk. */
+/**
+ * Control characters and separators would break the name in headers and on disk, and direction
+ * overrides would let `invoice\u202Efdp.exe` show as a PDF.
+ */
 const safeName = (name: string, fallback: string) =>
   name
-    .replace(/[\p{Cc}\\/]/gu, "_")
+    .replace(/[\p{Cc}\\/\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/gu, "_")
     .trim()
     .slice(0, 255) || fallback;
 
