@@ -5,6 +5,7 @@ import {
 import { AntigravityDriver, type AntigravityDriverEnv } from "./Drivers/AntigravityDriver.ts";
 import { ClaudeDriver, type ClaudeDriverEnv } from "./Drivers/ClaudeDriver.ts";
 import { CodexDriver, type CodexDriverEnv } from "./Drivers/CodexDriver.ts";
+import { OmoDriver, type OmoDriverEnv } from "./Drivers/OmoDriver.ts";
 import { CursorDriver, type CursorDriverEnv } from "@t3tools/provider-cursor/server";
 import { GrokDriver, type GrokDriverEnv } from "@t3tools/provider-grok/server";
 import { OpenCodeDriver, type OpenCodeDriverEnv } from "@t3tools/provider-opencode/server";
@@ -16,6 +17,7 @@ import type {
 } from "@t3tools/provider-core/server/driver";
 
 export type BuiltInDriversEnv =
+  | OmoDriverEnv
   | AcpRegistryDriverEnv
   | AntigravityDriverEnv
   | ClaudeDriverEnv
@@ -27,6 +29,9 @@ export type BuiltInDriversEnv =
   | MuseDriverEnv;
 
 export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [
+  // omo-first fork: OmoDriver leads so order-driven tie-breaks (UI lists,
+  // duplicate resolution) favor omo native — same policy as omo desktop.
+  OmoDriver,
   CodexDriver,
   ClaudeDriver,
   CursorDriver,
