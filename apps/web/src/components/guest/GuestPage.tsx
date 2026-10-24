@@ -31,6 +31,7 @@ import { useIncrementalTimelineEntries } from "~/hooks/useIncrementalTimelineEnt
 import { useNowMinute } from "~/hooks/useNowMinute";
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { useTheme } from "~/hooks/useTheme";
+import { observeResize } from "~/lib/observeResize";
 import { cn } from "~/lib/utils";
 import type { ChatComposerHandle } from "../chat/ChatComposer";
 import { ComposerControl, ComposerControlIcon } from "../chat/ComposerControl";
@@ -396,6 +397,29 @@ function GuestThread({
     ),
   );
   const unplaced = unplacedGuestMessages(messages, items, awaitingRowIds);
+  // The guest's waiting messages sit in the list footer, which the list does not follow on its
+  // own (the owner's view does the same in ChatView). A new one is the guest's own send, so it
+  // comes into view even if they had scrolled up, as the owner's send does. While following, the
+  // footer stays in view as it grows, such as when its images load.
+  const unplacedKey = unplaced.map((message) => message.id).join(",");
+  const previousUnplacedKey = useRef(unplacedKey);
+  const following = useRef(follow.timelineLiveFollowEnabled);
+  const scrollToEnd = useStableCallback(follow.scrollToEnd);
+  useEffect(() => {
+    following.current = follow.timelineLiveFollowEnabled;
+    const previous = new Set(previousUnplacedKey.current.split(","));
+    previousUnplacedKey.current = unplacedKey;
+    if (unplacedKey.split(",").some((id) => id !== "" && !previous.has(id))) scrollToEnd(true);
+  }, [follow.timelineLiveFollowEnabled, unplacedKey, scrollToEnd, following, previousUnplacedKey]);
+  const footerRef = useRef<HTMLOListElement>(null);
+  const hasFooter = unplaced.length > 0;
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!hasFooter || footer === null) return;
+    return observeResize(footer, () => {
+      if (following.current) scrollToEnd();
+    });
+  }, [hasFooter, scrollToEnd, following]);
   return (
     <>
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
@@ -439,7 +463,7 @@ function GuestThread({
           cancelPositionRestoreRef={follow.cancelPositionRestoreRef}
           footer={
             unplaced.length === 0 ? null : (
-              <ol className="chat-content-lane flex flex-col gap-4 pb-4">
+              <ol ref={footerRef} className="chat-content-lane flex flex-col gap-4 pb-4">
                 {unplaced.map((message) => (
                   <li key={message.id}>
                     <UnplacedGuestMessage shareId={shareId} message={message} />

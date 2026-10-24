@@ -1,5 +1,6 @@
 import {
   GUEST_RENDER_ROUTE,
+  GuestMessageId,
   GuestShareId,
   GuestStreamEvent,
   MessageId,
@@ -182,5 +183,183 @@ describe("GuestPage", () => {
     expect((form.get("file") as File).name).toBe("notes.txt");
     // Sent files leave the composer.
     await expect.element(screen.getByText("notes.txt")).not.toBeInTheDocument();
+  });
+
+  it("follows the end as replies stream, and shows the guest's own message even after they scrolled up", async () => {
+    using _page = visit(`/guest?share=${SHARE_ID}`);
+    using _session = vi
+      .spyOn(window, "fetch")
+      .mockImplementation(async () => new Response(null, { status: 204 }));
+    const sources: Array<EventTarget> = [];
+    // Enough turns that the thread overflows the page.
+    const longItems: ReadonlyArray<GuestTurnItem> = Array.from({ length: 12 }, (_, index) => ({
+      ...base,
+      id: TurnItemId.make(`reply-${index}`),
+      ordinal: index,
+      type: "assistant_message" as const,
+      messageId: MessageId.make(`reply-${index}`),
+      text: `Reply ${index}\n\n${"A long paragraph about the change. ".repeat(20)}`,
+      streaming: false,
+    }));
+    const view = {
+      shareId: GuestShareId.make(SHARE_ID),
+      title: "Fix login",
+      guestName: "Sam",
+      expiresAt: "2026-10-24T10:00:00.000Z",
+      messages: [],
+      model: { driver: null, name: "gpt-5.4" },
+    };
+    const run = {
+      id: RunId.make("run-1"),
+      ordinal: 1,
+      status: "running" as const,
+      requestedAt: "2026-10-23T10:00:00.000Z",
+      startedAt: "2026-10-23T10:00:00.000Z",
+      completedAt: null,
+      workStartedAt: "2026-10-23T10:00:00.000Z",
+      turnEnded: false,
+    };
+    using _stream = vi.spyOn(window, "EventSource").mockImplementation(
+      class extends EventTarget {
+        static readonly CLOSED = 2;
+        readyState = 1;
+        constructor() {
+          super();
+          sources.push(this);
+          queueMicrotask(() =>
+            this.dispatchEvent(
+              new MessageEvent("message", {
+                data: encodeEvent({ type: "snapshot", view, runs: [run], items: longItems }),
+              }),
+            ),
+          );
+        }
+        close() {
+          this.readyState = 2;
+        }
+      } as never,
+    );
+    const send = (event: GuestStreamEvent) =>
+      sources.at(-1)!.dispatchEvent(new MessageEvent("message", { data: encodeEvent(event) }));
+    const container = document.createElement("div");
+    container.style.cssText = "height: 600px; width: 900px; display: flex; flex-direction: column;";
+    await using screen = await render(<GuestPage />, { container });
+    await expect.element(screen.getByText("Reply 11")).toBeInTheDocument();
+    const scroller = () =>
+      screen.container.querySelector<HTMLElement>(".messages-timeline-scroll")!;
+    const expectAtEnd = () =>
+      vi.waitFor(() => {
+        const node = scroller();
+        expect(node.scrollHeight - node.scrollTop - node.clientHeight).toBeLessThan(2);
+      });
+    await expectAtEnd();
+
+    // A new reply streams in at the end.
+    send({
+      type: "item",
+      item: {
+        ...base,
+        id: TurnItemId.make("reply-new"),
+        ordinal: 20,
+        type: "assistant_message",
+        messageId: MessageId.make("reply-new"),
+        text: `Newest reply\n\n${"More words as the agent writes. ".repeat(30)}`,
+        streaming: true,
+      },
+    });
+    await expect.element(screen.getByText("Newest reply")).toBeInTheDocument();
+    await expectAtEnd();
+
+    // The guest reads back a little, then sends: their message comes into view anyway, as the
+    // owner's own send does.
+    const node = scroller();
+    node.dispatchEvent(new WheelEvent("wheel", { deltaY: -400, bubbles: true }));
+    node.scrollTop = node.scrollTop - 400;
+    node.dispatchEvent(new Event("scroll"));
+    await expect.element(screen.getByRole("button", { name: /scroll to/i })).toBeVisible();
+
+    // The guest's own message waits at the end for the owner.
+    send({
+      type: "view",
+      view: {
+        ...view,
+        messages: [
+          {
+            id: GuestMessageId.make("guest-1"),
+            text: "Can you also check the logout flow?",
+            status: "pending",
+            submittedAt: "2026-10-23T10:01:00.000Z",
+          },
+        ],
+      },
+    });
+    await expect
+      .element(screen.getByText("Can you also check the logout flow?"))
+      .toBeInTheDocument();
+    await expectAtEnd();
+
+    // The owner sends it: the run ends, the message becomes a row, and a new run's reply grows.
+    const sent = {
+      id: GuestMessageId.make("guest-1"),
+      text: "Can you also check the logout flow?",
+      status: "sent" as const,
+      submittedAt: "2026-10-23T10:01:00.000Z",
+    };
+    send({
+      type: "run",
+      run: {
+        ...run,
+        status: "completed",
+        completedAt: "2026-10-23T10:01:00.000Z",
+        turnEnded: true,
+      },
+    });
+    send({ type: "view", view: { ...view, messages: [sent] } });
+    const run2 = {
+      ...run,
+      id: RunId.make("run-2"),
+      ordinal: 2,
+      requestedAt: "2026-10-23T10:01:01.000Z",
+    };
+    send({ type: "run", run: run2 });
+    send({
+      type: "item",
+      item: {
+        ...base,
+        runId: RunId.make("run-2"),
+        id: TurnItemId.make("guest-row"),
+        ordinal: 30,
+        type: "user_message",
+        createdBy: "user",
+        creationSource: "web",
+        messageId: MessageId.make("guest-row"),
+        inputIntent: "turn_start",
+        text: "Message from guest Sam, sent by the owner: Can you also check the logout flow?",
+        attachments: [],
+        context: {
+          version: 1,
+          guest: { guestMessageId: sent.id, name: "Sam", text: sent.text },
+          records: [],
+        },
+      },
+    });
+    await expectAtEnd();
+    for (const words of [10, 40, 120]) {
+      send({
+        type: "item",
+        item: {
+          ...base,
+          runId: RunId.make("run-2"),
+          id: TurnItemId.make("logout-reply"),
+          ordinal: 31,
+          type: "assistant_message",
+          messageId: MessageId.make("logout-reply"),
+          text: `Logout reply\n\n${"Checking the logout flow now. ".repeat(words)}`,
+          streaming: true,
+        },
+      });
+      await expectAtEnd();
+      await expect.element(screen.getByText("Logout reply")).toBeInTheDocument();
+    }
   });
 });
