@@ -11,6 +11,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { HttpClient } from "effect/http";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 
 import { isTailnetHost } from "@t3tools/shared/hostClassification";
@@ -45,7 +46,7 @@ export class DirectEndpoints extends Context.Service<
  * (`server.local`) can resolve to a different machine on each client's network.
  */
 const isAdvertisableAddress = (address: string): boolean =>
-  !address.startsWith("127.") && isPrivateNetworkAddress(address);
+  NodeNet.isIPv4(address) && !address.startsWith("127.") && isPrivateNetworkAddress(address);
 
 /**
  * Tailscale's own interface: `tailscale0` on Linux, "Tailscale" on Windows.

@@ -148,6 +148,12 @@ describe("resolveBoundEndpoints", () => {
       resolveBoundEndpoints({ host: "203.0.113.20", port: 3773, interfaces: INTERFACES }),
     ).toEqual([]);
   });
+
+  it("never reports an IPv4-mapped host, which can name the client's own loopback", () => {
+    expect(
+      resolveBoundEndpoints({ host: "::ffff:127.0.0.1", port: 3773, interfaces: INTERFACES }),
+    ).toEqual([]);
+  });
 });
 
 const TAILSCALE_STATUS_JSON = JSON.stringify({
