@@ -194,7 +194,7 @@ describe("DesktopBrowserHost", () => {
 
   // Chromium counts a page with focus emulation as captured, so it stops throttling the
   // guest even while the preview panel hides it. Playwright enables it on every connect.
-  it.effect("a server connection alone does not keep a hidden guest unthrottled", () =>
+  it.effect("acknowledges focus emulation without forwarding it to the guest", () =>
     Effect.gen(function* () {
       const host = yield* DesktopBrowserHost.make;
       const debuggee = makeDebuggee();
