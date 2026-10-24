@@ -11,13 +11,18 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { HttpClient } from "effect/http";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 
-import { isPrivateNetworkHost, isTailnetHost } from "@t3tools/shared/hostClassification";
+import { isTailnetHost } from "@t3tools/shared/hostClassification";
 
 import * as ServerConfig from "../config.ts";
-import { formatHostForUrl, isLoopbackHost, isWildcardHost } from "../startupAccess.ts";
+import {
+  formatHostForUrl,
+  isLoopbackHost,
+  isPrivateNetworkAddress,
+  isWildcardHost,
+  VIRTUAL_INTERFACE,
+} from "../startupAccess.ts";
 
 type NetworkInterfacesMap = ReturnType<typeof NodeOS.networkInterfaces>;
 
@@ -40,19 +45,7 @@ export class DirectEndpoints extends Context.Service<
  * (`server.local`) can resolve to a different machine on each client's network.
  */
 const isAdvertisableAddress = (address: string): boolean =>
-  NodeNet.isIPv4(address) &&
-  !address.startsWith("127.") &&
-  !address.startsWith("169.254.") &&
-  isPrivateNetworkHost(address);
-
-/**
- * Container and VM networks (Docker, libvirt, VMware, VirtualBox, Hyper-V, and
- * macOS's `bridge100`+) have private addresses only this machine reaches. A
- * host bridge such as `br0` or Proxmox's `vmbr0` carries the LAN address, so
- * it stays listed.
- */
-const VIRTUAL_INTERFACE =
-  /^(docker|br-|veth|virbr|vmnet|vboxnet|vEthernet|podman|cni|flannel|cali|lxcbr|lxdbr|bridge1\d\d)/;
+  !address.startsWith("127.") && isPrivateNetworkAddress(address);
 
 /**
  * Tailscale's own interface: `tailscale0` on Linux, "Tailscale" on Windows.
