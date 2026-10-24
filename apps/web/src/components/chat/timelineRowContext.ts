@@ -10,7 +10,7 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import type { WorkflowOpening } from "@t3tools/client-runtime/state/subagentRuntime";
-import { createContext, type MouseEvent } from "react";
+import { createContext, type MouseEvent, type ReactNode } from "react";
 import { type LegendListRef } from "@legendapp/list/react";
 import type { CodexArtifactTemplate } from "@t3tools/shared/codexArtifactTemplates";
 import { type ChatFileAttachment } from "../../types";
@@ -40,13 +40,19 @@ export interface TimelineRowSharedState {
   findActive: boolean;
   onImageExpand: (preview: ExpandedImagePreview) => void;
   displayThreadKey?: string;
-  onOpenTurnDiff: (runId: RunId, filePath?: string) => void;
+  /** Unset where there is no diff to open, so the timeline shows no "Open diff" button. */
+  onOpenTurnDiff: ((runId: RunId, filePath?: string) => void) | undefined;
+  /**
+   * Draws a published HTML visual. Unset, the row loads it from the environment; the guest page
+   * loads it through its own route.
+   */
+  renderHtmlRender: ((row: Extract<TimelineRow, { kind: "html-render" }>) => ReactNode) | undefined;
   onOpenThread: (threadId: OrchestrationV2TurnItem["threadId"]) => void;
   workflowOpening: WorkflowOpening | null;
-  onForkFromRun: (input: {
-    readonly sourceThreadId: ThreadId;
-    readonly runId: RunId;
-  }) => Promise<void>;
+  /** Absent hides "Fork from this response", as in the guest view. */
+  onForkFromRun:
+    | ((input: { readonly sourceThreadId: ThreadId; readonly runId: RunId }) => Promise<void>)
+    | undefined;
   onRollbackCheckpoint: (input: {
     readonly checkpointId: string;
     readonly scopeId: string;

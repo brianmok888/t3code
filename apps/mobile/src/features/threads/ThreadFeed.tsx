@@ -16,6 +16,8 @@ import {
 } from "../../lib/enrichedLinkPresentation";
 import { ThreadContextDivider } from "./thread-context-divider";
 import { ThreadHandoffDivider, ThreadHandoffRow } from "./thread-handoff-row";
+import { GuestBubbleTint, GuestMessageName } from "./guestMessageStyle";
+import { ThreadGuestPendingMessages, useHasPendingGuestMessages } from "./ThreadGuestShareBar";
 import { SecretRequestCard } from "./SecretRequestCard";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import {
@@ -758,6 +760,38 @@ function MessageAttachmentFile(props: {
         </Pressable>
       </PresentationSource>
     </>
+  );
+}
+
+/** A message's files as its bubble shows them; a guest's waiting message uses it too. */
+function MessageAttachmentList(props: {
+  readonly attachments: ReadonlyArray<ChatAttachment>;
+  readonly environmentId: EnvironmentId;
+  readonly onPressPreview: (source: FilePreviewSource) => void;
+  readonly onPressVideo: (attachment: ChatFileAttachment, sourceIdentifier: string) => void;
+}) {
+  return props.attachments.map((attachment) =>
+    isImageAttachment(attachment) ? (
+      <MessageAttachmentImage
+        key={attachment.id}
+        environmentId={props.environmentId}
+        attachmentId={attachment.id}
+        name={attachment.name}
+        mimeType={attachment.mimeType}
+        className="mt-1.5 aspect-[1.3] w-full rounded-[18px] bg-subtle-strong"
+        onPressPreview={props.onPressPreview}
+      />
+    ) : isFileAttachment(attachment) ? (
+      <MessageAttachmentFile
+        key={attachment.id}
+        environmentId={props.environmentId}
+        attachment={attachment}
+        onPressPreview={props.onPressPreview}
+        onPressVideo={props.onPressVideo}
+      />
+    ) : (
+      <MessageAttachmentUnknown key={attachment.id} name={attachment.name} />
+    ),
   );
 }
 
@@ -1510,6 +1544,9 @@ function renderFeedEntry(
               Sent by T3 Code
             </Text>
           ) : null}
+          {presentation.guestName !== undefined ? (
+            <GuestMessageName name={presentation.guestName} />
+          ) : null}
           <View
             className="min-w-0 rounded-[20px]"
             style={{
@@ -1524,6 +1561,7 @@ function renderFeedEntry(
                     : null),
             }}
           >
+            {presentation.attribution === "guest" ? <GuestBubbleTint /> : null}
             {foldRowId !== null ? (
               <AgentMessageFoldHeader
                 environmentId={props.environmentId}
@@ -1682,7 +1720,7 @@ function renderFeedEntry(
                 <UserMessageCopyButton
                   text={presentation.text}
                   onCopy={
-                    message.context
+                    message.context && presentation.attribution !== "guest"
                       ? () =>
                           writeComposerContextClipboard(message.text, {
                             version: 1,
@@ -1728,29 +1766,12 @@ function renderFeedEntry(
             />
           </MarkdownImageAvailableWidthContext>
         ) : null}
-        {attachments.map((attachment) => {
-          return isImageAttachment(attachment) ? (
-            <MessageAttachmentImage
-              key={attachment.id}
-              environmentId={props.environmentId}
-              attachmentId={attachment.id}
-              name={attachment.name}
-              mimeType={attachment.mimeType}
-              className="mt-1.5 aspect-[1.3] w-full rounded-[18px] bg-subtle-strong"
-              onPressPreview={props.onPressPreview}
-            />
-          ) : isFileAttachment(attachment) ? (
-            <MessageAttachmentFile
-              key={attachment.id}
-              environmentId={props.environmentId}
-              attachment={attachment}
-              onPressPreview={props.onPressPreview}
-              onPressVideo={props.onPressVideo}
-            />
-          ) : (
-            <MessageAttachmentUnknown key={attachment.id} name={attachment.name} />
-          );
-        })}
+        <MessageAttachmentList
+          attachments={attachments}
+          environmentId={props.environmentId}
+          onPressPreview={props.onPressPreview}
+          onPressVideo={props.onPressVideo}
+        />
         {showAssistantMeta && message.checkpointSummary ? (
           <TurnDiffStat
             checkpoint={message.checkpointSummary}
@@ -2073,6 +2094,11 @@ function useThreadFeedPresentation(
 export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const { listRef, onEndFollowEnabledChange, onHeaderMaterialVisibilityChange } = props;
   const workflowOpening = useWorkflowOpening(props.environmentId, props.threadId);
+  const guestThreadRef = useMemo(
+    () => scopeThreadRef(props.environmentId, props.threadId),
+    [props.environmentId, props.threadId],
+  );
+  const hasPendingGuestMessages = useHasPendingGuestMessages(guestThreadRef);
   const deviceType = useDeviceType();
   const duoColumns = useNativeWorkspaceColumnsSupported() && isDuoDevice(deviceType);
   const openPullRequest = useOpenPullRequest();
@@ -3159,6 +3185,8 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
                     animated: false,
                     on: {
                       dataChange: true,
+                      // Pending guest messages arrive in the footer, not as rows.
+                      footerLayout: true,
                       itemLayout: true,
                       layout: true,
                     },
@@ -3235,15 +3263,29 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               </>
             }
             ListFooterComponent={
-              props.pendingHandoff ? (
-                <ThreadHandoffDivider
-                  environmentId={props.environmentId}
-                  endpoints={props.pendingHandoff}
-                  iconColor={iconSubtleColor}
-                  surfaceColor={screenColor}
-                  label="Context handoff pending"
+              <>
+                <ThreadGuestPendingMessages
+                  threadRef={guestThreadRef}
+                  bubbleMaxWidth={duoColumns ? "85%" : userBubbleMaxWidth}
+                  renderAttachments={(attachments) => (
+                    <MessageAttachmentList
+                      attachments={attachments}
+                      environmentId={props.environmentId}
+                      onPressPreview={onPressPreview}
+                      onPressVideo={onPressVideo}
+                    />
+                  )}
                 />
-              ) : null
+                {props.pendingHandoff ? (
+                  <ThreadHandoffDivider
+                    environmentId={props.environmentId}
+                    endpoints={props.pendingHandoff}
+                    iconColor={iconSubtleColor}
+                    surfaceColor={screenColor}
+                    label="Context handoff pending"
+                  />
+                ) : null}
+              </>
             }
             contentContainerStyle={{
               paddingTop: FEED_PADDING_TOP,
@@ -3253,6 +3295,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
           />
         </View>
         {presentedFeed.length === 0 &&
+        !hasPendingGuestMessages &&
         !props.worktreeSetup &&
         props.activeWorkStartedAt === null &&
         props.contentPresentation.kind === "ready" ? (
