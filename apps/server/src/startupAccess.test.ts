@@ -28,6 +28,7 @@ it("skips public and container addresses for a private-network listener", () => 
   const interfaces = {
     eth0: [ipv4("203.0.113.7")],
     docker0: [ipv4("172.17.0.1")],
+    bridge200: [ipv4("192.168.64.1")],
     eth1: [ipv4("10.0.0.5")],
   };
 

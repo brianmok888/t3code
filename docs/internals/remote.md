@@ -56,8 +56,11 @@ learned route still has to answer as this environment before it is used.
 
 A background service with no configured host is what makes this work for
 headless machines. It listens on every IPv4 interface and closes each
-connection unless both its local and remote addresses are loopback, private, or
-tailnet IPv4, so a VPS never answers on its public address, even through NAT. One listener per address would
+connection unless both addresses of the direct peer are loopback, private, or
+tailnet IPv4. That keeps a VPS's public address closed, including a cloud VM
+whose public address is NATed to a private interface. It is not a firewall:
+T3 Connect and Tailscale Serve reach the server over loopback by design, and a
+proxy that rewrites the source address looks private. One listener per address would
 miss a DHCP change, and the wildcard keeps the reported addresses current.
 
 Pull request routing trust covers the whole route list. Adding or changing a route
