@@ -6997,6 +6997,11 @@ export const layerMemory: Layer.Layer<ProjectionStoreV2> = Layer.effect(
               ...projection.messages.flatMap((message) =>
                 message.attachments.map((attachment) => attachment.id),
               ),
+              ...(projection.thread.guestShare?.messages ?? []).flatMap((message) =>
+                message.status === "pending"
+                  ? (message.attachments ?? []).map((attachment) => attachment.id)
+                  : [],
+              ),
               ...threadHtmlRenderAttachmentIds(
                 threadId,
                 projection.turnItems.flatMap((item) =>
