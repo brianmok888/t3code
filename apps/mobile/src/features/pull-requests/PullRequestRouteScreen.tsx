@@ -38,7 +38,7 @@ import { annotatePullRequestDiff, reviewPosition } from "./pullRequestDiffCommen
 import { usePullRequestFileFilter } from "./usePullRequestFileFilter";
 import { isPullRequestTestFile } from "./pullRequestFileFilters";
 import { useFocusEffect, useNavigation, type StaticScreenProps } from "@react-navigation/native";
-import { RegistryContext, useAtomRefresh } from "@effect/atom-react";
+import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { pullRequestReviewKey } from "./pullRequestReviewDrafts";
 import { type PullRequestDetail, type PullRequestListEntry } from "@t3tools/contracts";
 import { PullRequestOverviewLoading } from "./PullRequestOverviewLoading";
@@ -71,6 +71,8 @@ import { SymbolView } from "../../components/ui/AppSymbol";
 import { relativeTime } from "../../lib/time";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { usePullRequestConnected } from "./usePullRequestConnected";
+import { usePullRequestLiveChecks } from "./usePullRequestLiveChecks";
+import { PullRequestReactions } from "./PullRequestReactions";
 import { composerPullRequests } from "../../state/pull-requests";
 import { useEnvironmentQuery } from "../../state/query";
 import { usePullToRefresh } from "../../state/use-pull-to-refresh";
@@ -131,10 +133,15 @@ function PullRequestTabScrollView(props: ScrollViewProps) {
 function usePullRequestActivityRows(params: PullRequestParams, filter: ActivityFilter) {
   const navigation = useNavigation();
   const result = useEnvironmentQuery(composerPullRequests.activity(requestTarget(params)));
+  const detail = useEnvironmentQuery(composerPullRequests.detail(requestTarget(params)));
+  const permissions = usePullRequestPermissions(params, detail.data);
   const filtered = result.data ? filterPullRequestActivity(result.data, filter) : null;
   const rows = (() => {
     if (!filtered) return [];
-    const rows = pullRequestTimelineRows(filtered.activity, params, navigation);
+    const rows = pullRequestTimelineRows(filtered.activity, params, navigation, {
+      permissions,
+      onChanged: result.refresh,
+    });
     if (filter.newestFirst) {
       const notice = rows.at(-1)?.key === "truncated" ? rows.pop() : undefined;
       rows.reverse();
@@ -225,6 +232,39 @@ function PullRequestIdentity(props: {
   );
 }
 
+function PullRequestLabels(props: {
+  readonly pr: PullRequestDetail;
+  readonly params: PullRequestParams;
+}) {
+  const navigation = useNavigation();
+  const connected = usePullRequestConnected(props.params.environmentId);
+  const canWrite = useAtomValue(
+    composerPullRequests.setLabels.permissionAtom(requestTarget(props.params).environmentId),
+  );
+  const editable =
+    connected &&
+    canWrite &&
+    props.pr.capabilities.labels === true &&
+    props.pr.viewerPermissions.labels !== false;
+  if (!props.pr.labels.length && !editable) return null;
+  return (
+    <Animated.View layout={PR_ROW_LAYOUT} className="flex-row flex-wrap gap-2">
+      {props.pr.labels.map((label) => (
+        <Chip key={label.name} label={label.name} size="small" />
+      ))}
+      {editable ? (
+        <Chip
+          label={props.pr.labels.length ? "Edit" : "Add labels"}
+          icon="tag"
+          size="small"
+          accessibilityLabel="Edit labels"
+          onPress={() => navigation.navigate("PullRequestLabels", props.params)}
+        />
+      ) : null}
+    </Animated.View>
+  );
+}
+
 function PullRequestOverview(props: {
   readonly pr: PullRequestDetail;
   readonly params: PullRequestParams;
@@ -248,13 +288,7 @@ function PullRequestOverview(props: {
           <PullRequestMergeControls pr={pr} params={props.params} stack={props.stack} />
         </Animated.View>
       </PullRequestCardGroup>
-      {pr.labels.length ? (
-        <Animated.View layout={PR_ROW_LAYOUT} className="flex-row flex-wrap gap-2">
-          {pr.labels.map((label) => (
-            <Chip key={label.name} label={label.name} size="small" />
-          ))}
-        </Animated.View>
-      ) : null}
+      <PullRequestLabels pr={pr} params={props.params} />
       <Animated.View
         layout={PR_POSITION_LAYOUT}
         onLayout={(event) => props.onDescriptionLayout(event.nativeEvent.layout.y)}
@@ -264,6 +298,7 @@ function PullRequestOverview(props: {
           onCollapse={props.onDescriptionCollapse}
           expanded={props.descriptionExpanded}
           onExpandedChange={props.onDescriptionExpandedChange}
+          footer={<PullRequestReactions params={props.params} />}
         />
       </Animated.View>
     </View>
@@ -343,7 +378,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const pullRefresh = usePullToRefresh(detailAtom);
   const { refresh: refreshDetail } = result;
   useFocusEffect(() => refreshDetail());
-  const pr = result.data;
+  const pr = usePullRequestLiveChecks(params, result.data);
   const summary = params.initialSummary;
   const identity = pr ?? summary;
   const terminology = sourceControlClients.get(identity?.provider).changeRequest;
@@ -432,6 +467,24 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                     },
                   ]
                 : []),
+              ...(permissions.canEditChangeRequest
+                ? [
+                    {
+                      accessibilityLabel: "Edit title",
+                      icon: "pencil" as const,
+                      overflowOnly: true,
+                      onPress: () =>
+                        navigation.navigate("PullRequestEdit", { ...params, field: "title" }),
+                    },
+                    {
+                      accessibilityLabel: "Edit description",
+                      icon: "doc.text" as const,
+                      overflowOnly: true,
+                      onPress: () =>
+                        navigation.navigate("PullRequestEdit", { ...params, field: "body" }),
+                    },
+                  ]
+                : []),
               ...(identity
                 ? [
                     {
@@ -492,6 +545,24 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                 }
               >
                 <Toolbar.Label>Add comment</Toolbar.Label>
+              </Toolbar.MenuAction>
+            ) : null}
+            {permissions.canEditChangeRequest ? (
+              <Toolbar.MenuAction
+                icon="pencil"
+                onPress={() =>
+                  navigation.navigate("PullRequestEdit", { ...params, field: "title" })
+                }
+              >
+                <Toolbar.Label>Edit title</Toolbar.Label>
+              </Toolbar.MenuAction>
+            ) : null}
+            {permissions.canEditChangeRequest ? (
+              <Toolbar.MenuAction
+                icon="doc.text"
+                onPress={() => navigation.navigate("PullRequestEdit", { ...params, field: "body" })}
+              >
+                <Toolbar.Label>Edit description</Toolbar.Label>
               </Toolbar.MenuAction>
             ) : null}
             {identity ? (

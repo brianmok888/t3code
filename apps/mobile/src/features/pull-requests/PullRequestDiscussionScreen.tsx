@@ -24,6 +24,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { useEnvironmentQuery } from "../../state/query";
 import { PullRequestMarkdown, PullRequestMarkdownRepository } from "./PullRequestMarkdown";
 import { PullRequestAvatar } from "./PullRequestPresentation";
+import { PullRequestCommentFooter } from "./PullRequestReactions";
 import { pullRequestTarget, type PullRequestParams } from "./usePullRequestDiff";
 import { usePullRequestPermissions } from "./usePullRequestPermissions";
 import { pullRequestReviewKey } from "./pullRequestReviewDrafts";
@@ -200,6 +201,12 @@ function Discussion({ params }: { params: PullRequestParams & { readonly discuss
                   </Text>
                 </View>
                 <PullRequestMarkdown markdown={comment.body} />
+                <PullRequestCommentFooter
+                  params={params}
+                  comment={{ ...comment, kind: "review-comment" }}
+                  permissions={permissions}
+                  onChanged={refresh}
+                />
               </View>
             ))}
             {nextCursor ? (
