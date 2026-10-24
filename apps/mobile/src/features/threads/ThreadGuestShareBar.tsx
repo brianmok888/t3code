@@ -7,7 +7,6 @@ import {
 import {
   AuthOrchestrationOperateScope,
   type ChatAttachment,
-  isGuestShareExpired,
   type ScopedThreadRef,
   type ThreadGuestMessage,
   type ThreadGuestShare,
@@ -66,14 +65,17 @@ export function ThreadGuestShareBar(props: {
   const share = useThreadGuestShare(threadRef);
   const closeGuestShare = useAtomCommand(threadEnvironment.closeGuestShare, "stop guest sharing");
   const [busy, setBusy] = useState(false);
-  // An expired link stays listed until the owner stops sharing; the label flips when it expires.
-  const [now, setNow] = useState(Date.now);
+  // The server keeps an expired link so waiting messages stay resolvable; the label flips when
+  // it expires.
+  // Keyed by the expiry, so a replaced link (even one already expired) gets its own timer.
+  const [expiredAt, setExpiredAt] = useState<string | null>(null);
   const expiresAt = share?.expiresAt;
   useEffect(() => {
     if (expiresAt === undefined) return;
-    const remaining = Date.parse(expiresAt) - Date.now();
-    if (remaining <= 0) return;
-    const timer = setTimeout(() => setNow(Date.now()), remaining);
+    const timer = setTimeout(
+      () => setExpiredAt(expiresAt),
+      Math.max(0, Date.parse(expiresAt) - Date.now()),
+    );
     return () => clearTimeout(timer);
   }, [expiresAt]);
   if (threadRef === null || !share) return null;
@@ -102,7 +104,7 @@ export function ThreadGuestShareBar(props: {
     <View className="flex-row items-center gap-2 px-4 pb-2">
       <SymbolView name="person.2" size={12} tintColorClassName="accent-foreground-muted" />
       <Text className="min-w-0 flex-1 text-xs text-foreground-muted" numberOfLines={1}>
-        {isGuestShareExpired(share, now)
+        {expiredAt === share.expiresAt
           ? "Guest link expired"
           : share.guestName === null
             ? "Guest link active"

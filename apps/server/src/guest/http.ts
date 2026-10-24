@@ -113,10 +113,12 @@ const UPLOAD_LIMITS = Multipart.limitsServices({
   maxParts: GUEST_MESSAGE_MAX_ATTACHMENTS + 4,
   maxFileSize: GUEST_MESSAGE_MAX_ATTACHMENT_BYTES,
   maxTotalSize: GUEST_MESSAGE_MAX_ATTACHMENT_BYTES + 64 * 1024,
+  // By default a JSON part is read as a field, which would drop a guest's `.json` file.
+  fieldMimeTypes: [],
 });
 
 /** A message as JSON (text only), or as multipart form data with `file` parts. */
-const readSubmission = Effect.gen(function* () {
+export const readSubmission = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest;
   if (!request.headers["content-type"]?.startsWith("multipart/form-data")) {
     const body = yield* readJson.pipe(Effect.flatMap(decodeSubmit), Effect.option);
