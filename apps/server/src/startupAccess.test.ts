@@ -46,6 +46,15 @@ it("skips public and container addresses for a private-network listener", () => 
   ).toBe("http://localhost:3773");
 });
 
+it("prefers a LAN address over a tailnet one for a private-network pairing URL", () => {
+  expect(
+    resolveHeadlessConnectionString("0.0.0.0", 3773, {
+      interfaces: { tailscale0: [ipv4("100.101.102.103")], en0: [ipv4("192.168.1.42")] },
+      privateNetworkOnly: true,
+    }),
+  ).toBe("http://192.168.1.42:3773");
+});
+
 describe("acceptsPrivateNetworkConnection", () => {
   const accepts = (localAddress: string | undefined, remoteAddress: string | undefined) =>
     acceptsPrivateNetworkConnection({ localAddress, remoteAddress });

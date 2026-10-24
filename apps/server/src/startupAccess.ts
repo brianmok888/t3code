@@ -1,7 +1,7 @@
 import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 
-import { isPrivateNetworkHost } from "@t3tools/shared/hostClassification";
+import { isPrivateNetworkHost, isSharedAddressSpaceHost } from "@t3tools/shared/hostClassification";
 import { QrCode } from "@t3tools/shared/qrCode";
 import * as Effect from "effect/Effect";
 import { HttpServer } from "effect/http";
@@ -98,12 +98,17 @@ const resolveHeadlessConnectionHost = (
   const interfaceEntries = Object.entries(interfaces).flatMap(([name, entries]) =>
     privateNetworkOnly && VIRTUAL_INTERFACE.test(name) ? [] : (entries ?? []),
   );
-  const externalIpv4 = interfaceEntries.find(
+  const externalIpv4Entries = interfaceEntries.filter(
     (entry) =>
       !entry.internal &&
       isIpv4Family(entry.family) &&
       (!privateNetworkOnly || isPrivateNetworkAddress(entry.address)),
   );
+  // A tailnet or other CGNAT address reaches fewer devices than the LAN one.
+  const externalIpv4 = privateNetworkOnly
+    ? (externalIpv4Entries.find((entry) => !isSharedAddressSpaceHost(entry.address)) ??
+      externalIpv4Entries[0])
+    : externalIpv4Entries[0];
   if (externalIpv4) {
     return externalIpv4.address;
   }
