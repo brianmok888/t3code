@@ -51,11 +51,20 @@ export function guestPathRoots(
 
 const isAbsolutePath = (path: string) => /^(?:[\\/]|[A-Za-z]:[\\/])/u.test(path);
 
+const isWindowsPath = (path: string) => /^[A-Za-z]:[\\/]/u.test(path);
+
+/** Windows paths compare with either separator and in any case, as Windows tools print them. */
+const comparablePath = (path: string, windows: boolean) =>
+  windows ? path.replaceAll("\\", "/").toLowerCase() : path;
+
 /** A path inside a root loses it; any other absolute path keeps only its base name. */
 function guestPath(path: string, roots: GuestPathRoots): string {
   for (const { dir, as } of roots) {
-    if (path === dir) return as;
-    if (path.startsWith(`${dir}/`) || path.startsWith(`${dir}\\`)) {
+    const windows = isWindowsPath(dir);
+    const candidate = comparablePath(path, windows);
+    const root = comparablePath(dir, windows);
+    if (candidate === root) return as;
+    if (candidate.startsWith(`${root}/`) || candidate.startsWith(`${root}\\`)) {
       const rest = path.slice(dir.length + 1);
       return as === "." ? rest || "." : `~/${rest}`;
     }
@@ -64,8 +73,6 @@ function guestPath(path: string, roots: GuestPathRoots): string {
 }
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-
-const isWindowsPath = (path: string) => /^[A-Za-z]:[\\/]/u.test(path);
 
 /**
  * Rewrites the roots inside free text, such as a command, a reply, or a title. Windows roots match

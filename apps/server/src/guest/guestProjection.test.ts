@@ -443,6 +443,12 @@ describe("projectTurnItemForGuest", () => {
     expect(command("type C:/Users/owner/proj/.env c:\\users\\owner\\x", windows)).toMatchObject({
       input: "type .env ~/x",
     });
+    expect(
+      projectTurnItemForGuest(
+        item({ type: "file_change", fileName: "c:/users/owner/proj/src/index.ts" }),
+        windows,
+      ),
+    ).toMatchObject({ fileName: "src/index.ts" });
   });
 });
 
