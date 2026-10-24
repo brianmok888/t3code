@@ -192,6 +192,43 @@ describe("DesktopBrowserHost", () => {
     }),
   );
 
+  // Chromium counts a page with focus emulation as captured, so it stops throttling the
+  // guest even while the preview panel hides it. Playwright enables it on every connect.
+  it.effect("a server connection alone does not keep a hidden guest unthrottled", () =>
+    Effect.gen(function* () {
+      const host = yield* DesktopBrowserHost.make;
+      const debuggee = makeDebuggee();
+      const received: Array<{ readonly method: string; readonly params: unknown }> = [];
+      const sendCommand = debuggee.tab.debugger.sendCommand.bind(debuggee.tab.debugger);
+      debuggee.tab.debugger.sendCommand = (method: string, params?: object) => {
+        received.push({ method, params });
+        return sendCommand(method, params);
+      };
+      host.attach(key, debuggee.tab);
+      const replies = yield* watchReplies(host);
+
+      yield* host.handleCommandLine(
+        encodeJson({
+          type: "cdp",
+          ...key,
+          message: encodeJson({
+            id: 1,
+            method: "Emulation.setFocusEmulationEnabled",
+            params: { enabled: true },
+            sessionId: "t3-preview-page",
+          }),
+        }),
+      );
+      debuggee.release();
+
+      expect(yield* Queue.take(replies)).toBe(1);
+      expect(received).not.toContainEqual({
+        method: "Emulation.setFocusEmulationEnabled",
+        params: { enabled: true },
+      });
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("saves a server tab's download under its CDP guid where the server asked", () =>
     Effect.gen(function* () {
       const host = yield* DesktopBrowserHost.make;
