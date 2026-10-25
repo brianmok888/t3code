@@ -170,3 +170,15 @@ NEXT: vp build (desktop/web) -> Expo prebuild + assembleRelease for the APK.
 - 5.1.47 host ensure reports EXPANDED capabilities (additive only; harness-relied
   set intact): + session_relocation, move_session(+_revoke), unload_session,
   runtime_identity_handover, retry_fallback_profile, warm, tool_barrier
+
+## ★ FIRST APK BUILT (Oct 25) — upstream-native Expo path
+
+- `expo prebuild --platform android --no-install` (Expo 58 / RN 0.88) succeeded;
+  android/ generated incl. debug.keystore
+- gradle 9.4.1 assembleDebug: **BUILD SUCCESSFUL in 30m 6s**
+- artifact: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+  (466 MB, all 4 ABIs, package com.t3tools.t3code v2.1.0, minSdk 24 / target 36;
+  gradle auto-installed SDK Platform 37 for compileSdk)
+- assembleRelease launched (release falls back to debug keystore signing ->
+  sideloadable out of the box); branding pass (app id + icon + unofficial tag)
+  and ABI splits are the next packaging steps
