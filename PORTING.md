@@ -66,6 +66,19 @@ remaining typecheck work. Next real step: same harness against the REAL
 lane-v5 host (already validated live Oct 23), then adapter-level tests once
 OmoAdapter event vocabulary is resolved.
 
+## Latest-omo verification (Oct 25): ALL GREEN on BOTH
+
+- omo on VM02 = 5.1.45 (engine senpi 2026.10.23-1) — omo-ai 5.1.45 pins the
+  engine EXACTLY; newer daily engine 2026.10.24-4 exists but has NO CLI pairing
+  (forcing it = hand-editing the official pin — rejected, native stays official)
+- Harness vs REAL lane-v5 host: 12/12 PASS (model codex/gpt-6.1-sol via shim,
+  10 real deltas, agent_idle, reattach attached=true, close clean)
+- Harness harness fix: waitFor now scans event backlog (real host streams
+  faster than wait-registration; live-consumption missed events)
+- v4 classic lane smoke on 5.1.45: complete in 33s — no engine regression
+- NOTE: harness timeouts via HARNESS_TIMEOUT_MS env (real generations need
+  120s+; mock default 5s fine)
+
 ## Next
 
 1. Extract contracts chunk from asar; reconstruct omo contract extensions as
