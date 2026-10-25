@@ -53,6 +53,19 @@ Taxonomy (root causes only — rest are cascades):
 - effect 3 -> 4 API drift (Schema.TaggedErrorClass -> TaggedClass etc.),
   ~200 TS377030/TS377004 any-channel cascades + renames. t3 v0.1.2 = effect@4.0.5.
 
+## Mock connection test (Oct 25): ALL GREEN 12/12
+
+scripts/omo-mock/mock_omo_host.py (deterministic native-host protocol mock:
+protocol-info/list_sessions/open_session/prompt streaming/get_state/get_messages/
+close_session, same-id isolation, reattach-by-sessionPath) +
+mock_conn_test.mjs (Node harness replicating OmoSharedProcess sequence).
+Run: MOCK_SOCK=/tmp/mock-omo-$(date +%s).sock python3 scripts/omo-mock/mock_omo_host.py &
+node scripts/omo-mock/mock_conn_test.mjs
+Validates the exact wire contract the adapter will drive, independent of the
+remaining typecheck work. Next real step: same harness against the REAL
+lane-v5 host (already validated live Oct 23), then adapter-level tests once
+OmoAdapter event vocabulary is resolved.
+
 ## Next
 
 1. Extract contracts chunk from asar; reconstruct omo contract extensions as
