@@ -7,11 +7,13 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import {
+  type ModelSelection,
   type ProviderSendTurnInput,
   ProviderDriverKind,
   type ProviderInstanceId,
   ThreadId,
   type TurnId,
+  type RuntimeMode,
 } from "@t3tools/contracts";
 
 import type { ProviderAdapterError } from "../Errors.ts";
@@ -21,12 +23,27 @@ export interface ProviderAdapterCapabilities {
   readonly sessionModelSwitch: "in-session" | "restart-required" | "unsupported";
 }
 
+export interface ProviderSubagentTaskMessageInput {
+  readonly taskId: string;
+  readonly message: string;
+}
+
+export interface ProviderSubagentTaskCancelInput {
+  readonly taskId: string;
+  readonly reason?: string | undefined;
+}
+
+export interface ProviderSubagentTaskReadInput {
+  readonly taskId: string;
+}
+
 export interface ProviderAdapterStartSessionInput {
+  readonly runtimeMode?: RuntimeMode;
   readonly threadId: ThreadId;
   readonly provider?: typeof ProviderDriverKind.Type;
   readonly environment?: NodeJS.ProcessEnv;
   readonly cwd?: string;
-  readonly modelSelection?: unknown;
+  readonly modelSelection?: ModelSelection;
   readonly resumeCursor?: unknown;
 }
 
@@ -56,9 +73,18 @@ export interface ProviderAdapterShape<E = ProviderAdapterError> {
   readonly readThread: (threadId: ThreadId) => Effect.Effect<unknown, E>;
   readonly rollbackThread: () => Effect.Effect<void, E>;
   readonly stopAll: () => Effect.Effect<void, E>;
-  readonly sendSubagentMessage?: (threadId: ThreadId, input: unknown) => Effect.Effect<unknown, E>;
-  readonly cancelSubagentTask?: (threadId: ThreadId, input: unknown) => Effect.Effect<unknown, E>;
-  readonly readSubagentOutput?: (threadId: ThreadId, input: unknown) => Effect.Effect<unknown, E>;
+  readonly sendSubagentMessage?: (
+    threadId: ThreadId,
+    input: ProviderSubagentTaskMessageInput,
+  ) => Effect.Effect<unknown, E>;
+  readonly cancelSubagentTask?: (
+    threadId: ThreadId,
+    input: ProviderSubagentTaskCancelInput,
+  ) => Effect.Effect<unknown, E>;
+  readonly readSubagentOutput?: (
+    threadId: ThreadId,
+    input: ProviderSubagentTaskReadInput,
+  ) => Effect.Effect<unknown, E>;
 }
 
 export class ProviderAdapter extends Context.Service<

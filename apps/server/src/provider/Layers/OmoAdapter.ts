@@ -14,6 +14,7 @@ import type {
   UserInputQuestion,
 } from "@t3tools/contracts";
 import {
+  type ThreadTurnDeliveryMode,
   ApprovalRequestId,
   EventId,
   ProviderDriverKind,
@@ -1096,7 +1097,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
     context: OmoSessionContext,
     requestId: ApprovalRequestId,
   ): PendingDialog | undefined => {
-    const pending = context.pendingDialogs.get(requestId);
+    const pending = context.pendingDialogs.get(requestId as ApprovalRequestId);
     if (pending === undefined) return undefined;
     context.pendingDialogs.delete(requestId);
     context.dialogRequestsByNativeId.delete(pending.nativeId);
@@ -2439,7 +2440,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
           currentEpoch: sharedState.epoch,
           sessionId: record.sessionId,
           type: record.type,
-          eventType: record.eventType,
+          eventType: (record as { eventType?: string }).eventType,
         });
         return;
       }
@@ -2743,7 +2744,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
           const openOptions = {
             sessionFile,
             cwd: input.cwd ?? serverConfig.stateDir,
-            permissionPreset: omoPermissionPreset(input.runtimeMode),
+            permissionPreset: omoPermissionPreset(input.runtimeMode ?? "auto"),
             model: requestedModel,
             thinkingLevel: requestedThinkingLevel,
             expectedSessionId: resumeCursor?.sessionId,
@@ -2797,7 +2798,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
             provider: PROVIDER,
             providerInstanceId: boundInstanceId,
             status: "ready",
-            runtimeMode: input.runtimeMode,
+            runtimeMode: input.runtimeMode ?? "auto",
             cwd: input.cwd ?? serverConfig.stateDir,
             ...(currentModel === undefined ? {} : { model: encodeOmoModelSlug(currentModel) }),
             threadId: input.threadId,
@@ -3285,7 +3286,12 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
                   message: input.input ?? "",
                   ...(images.length === 0 ? {} : { images }),
                 },
-                deliveryMode: input.deliveryMode ?? "steer",
+                deliveryMode:
+                  (
+                    input as ProviderSendTurnInput & {
+                      readonly deliveryMode?: ThreadTurnDeliveryMode;
+                    }
+                  ).deliveryMode ?? "steer",
                 isStreaming: true,
                 send: context.handle.send,
               }).pipe(
@@ -3461,7 +3467,9 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
           ...(images.length === 0 ? {} : { images }),
           ...(thinkingLevel === undefined ? {} : { thinkingLevel }),
         },
-        deliveryMode: input.deliveryMode ?? "steer",
+        deliveryMode:
+          (input as ProviderSendTurnInput & { readonly deliveryMode?: ThreadTurnDeliveryMode })
+            .deliveryMode ?? "steer",
         isStreaming: wasStreaming,
         send: context.handle.send,
       }).pipe(
@@ -3564,7 +3572,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
     "OmoAdapter.respondToUserInput",
   )(function* (threadId, requestId, answers) {
     const context = yield* requireSession(threadId);
-    const pending = context.pendingDialogs.get(requestId);
+    const pending = context.pendingDialogs.get(requestId as ApprovalRequestId);
     if (pending === undefined) {
       return yield* new ProviderAdapterRequestError({
         provider: PROVIDER,
@@ -3592,7 +3600,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
           }),
       ),
     );
-    const resolved = clearPendingDialog(context, requestId);
+    const resolved = clearPendingDialog(context, requestId as ApprovalRequestId);
     if (resolved === undefined) {
       return yield* new ProviderAdapterRequestError({
         provider: PROVIDER,
