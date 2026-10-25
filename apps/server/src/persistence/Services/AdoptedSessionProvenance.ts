@@ -36,88 +36,91 @@ const storePath = (): string => {
   return `${home}/.t3code/adopted-sessions.json`;
 };
 
+export interface AdoptedSessionProvenanceService {
+  readonly findBySourcePath: (input: {
+    readonly sourcePath: string;
+  }) => Effect.Effect<Option.Option<AdoptedRecord>, AdoptedSessionProvenanceRepositoryError>;
+  readonly markAdopted: (input: {
+    readonly sourcePath: string;
+    readonly threadId: string;
+  }) => Effect.Effect<void, AdoptedSessionProvenanceRepositoryError>;
+  readonly listAdopted: () => Effect.Effect<
+    ReadonlyArray<AdoptedRecord>,
+    AdoptedSessionProvenanceRepositoryError
+  >;
+}
+
 export class AdoptedSessionProvenanceRepository extends Context.Service<
   AdoptedSessionProvenanceRepository,
-  {
-    readonly findBySourcePath: (input: {
-      readonly sourcePath: string;
-    }) => Effect.Effect<Option.Option<AdoptedRecord>, AdoptedSessionProvenanceRepositoryError>;
-    readonly markAdopted: (input: {
-      readonly sourcePath: string;
-      readonly threadId: string;
-    }) => Effect.Effect<void, AdoptedSessionProvenanceRepositoryError>;
-    readonly listAdopted: () => Effect.Effect<
-      ReadonlyArray<AdoptedRecord>,
-      AdoptedSessionProvenanceRepositoryError
-    >;
-  }
->() {
-  static readonly layer = Layer.effect(
-    AdoptedSessionProvenanceRepository,
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
+  AdoptedSessionProvenanceService
+>("omo/persistence/AdoptedSessionProvenanceRepository") {}
 
-      const readStore = (): Effect.Effect<StoreFile, AdoptedSessionProvenanceRepositoryError> =>
-        fs.readFile(storePath()).pipe(
-          Effect.map((bytes) => {
-            try {
-              const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
-              const decoded = Schema.decodeUnknownSync(StoreFile)(parsed);
-              return decoded;
-            } catch {
-              return EMPTY;
-            }
-          }),
-          Effect.orElseSucceed(() => EMPTY),
-          Effect.mapError(
-            (cause) =>
-              new AdoptedSessionProvenanceRepositoryError({
-                reason: "failed to read provenance store",
-                cause,
-              }),
-          ),
-        );
+export const AdoptedSessionProvenanceRepositoryLive = Layer.effect(
+  AdoptedSessionProvenanceRepository,
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
 
-      const writeStore = (
-        store: StoreFile,
-      ): Effect.Effect<void, AdoptedSessionProvenanceRepositoryError> =>
-        fs.writeFile(storePath(), new TextEncoder().encode(JSON.stringify(store, null, 2))).pipe(
-          Effect.mapError(
-            (cause) =>
-              new AdoptedSessionProvenanceRepositoryError({
-                reason: "failed to write provenance store",
-                cause,
-              }),
-          ),
-        );
-
-      return {
-        findBySourcePath: (input) =>
-          readStore().pipe(
-            Effect.map((store) =>
-              Option.fromNullable(
-                store.records.find((record) => record.sourcePath === input.sourcePath),
-              ),
-            ),
-          ),
-        markAdopted: (input) =>
-          readStore().pipe(
-            Effect.flatMap((store) => {
-              const next: StoreFile = {
-                records: [
-                  ...store.records.filter((record) => record.sourcePath !== input.sourcePath),
-                  {
-                    sourcePath: input.sourcePath,
-                    threadId: input.threadId,
-                    adoptedAt: new Date().toISOString(),
-                  },
-                ],
-              };
-              return writeStore(next);
+    const readStore = (): Effect.Effect<StoreFile, AdoptedSessionProvenanceRepositoryError> =>
+      fs.readFile(storePath()).pipe(
+        Effect.map((bytes) => {
+          try {
+            const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+            const decoded = Schema.decodeUnknownSync(StoreFile)(parsed);
+            return decoded;
+          } catch {
+            return EMPTY;
+          }
+        }),
+        Effect.orElseSucceed(() => EMPTY),
+        Effect.mapError(
+          (cause) =>
+            new AdoptedSessionProvenanceRepositoryError({
+              reason: "failed to read provenance store",
+              cause,
             }),
+        ),
+      );
+
+    const writeStore = (
+      store: StoreFile,
+    ): Effect.Effect<void, AdoptedSessionProvenanceRepositoryError> =>
+      fs.writeFile(storePath(), new TextEncoder().encode(JSON.stringify(store, null, 2))).pipe(
+        Effect.mapError(
+          (cause) =>
+            new AdoptedSessionProvenanceRepositoryError({
+              reason: "failed to write provenance store",
+              cause,
+            }),
+        ),
+      );
+
+    return {
+      findBySourcePath: (input) =>
+        readStore().pipe(
+          Effect.map((store) =>
+            ((): Option.Option<AdoptedRecord> => {
+              const hit = store.records.find((record) => record.sourcePath === input.sourcePath);
+              return hit === undefined ? Option.none() : Option.some(hit);
+            })(),
           ),
-        listAdopted: () => readStore().pipe(Effect.map((store) => store.records)),
-      };
-    }),
-  );
-}
+        ),
+      markAdopted: (input) =>
+        readStore().pipe(
+          Effect.flatMap((store) => {
+            const next: StoreFile = {
+              records: [
+                ...store.records.filter((record) => record.sourcePath !== input.sourcePath),
+                {
+                  sourcePath: input.sourcePath,
+                  threadId: input.threadId,
+                  adoptedAt: new Date().toISOString(),
+                },
+              ],
+            };
+            return writeStore(next);
+          }),
+        ),
+      listAdopted: () => readStore().pipe(Effect.map((store) => store.records)),
+    };
+  }),
+);

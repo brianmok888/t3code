@@ -1,17 +1,17 @@
-// Port shim (omo fork): effect 3.x shipped an experimental
-// `effect/unstable/process` module (ChildProcessSpawner service +
-// ChildProcess.make command specs). effect@4.0.5 no longer exposes it, so the
-// surface actually consumed by the ported omo provider layers is
-// reconstructed here on node:child_process:
+// Port shim (omo fork): reconstructs the slice of effect-3's experimental
+// `effect/unstable/process` module that the ported omo provider layers use,
+// on top of effect@4 + node:child_process.
 //   ChildProcess.make(cmd, args, opts) -> Effect<Command>
-//   ChildProcessSpawner.ChildProcessSpawner -> Tag providing { spawn }
-//   spawner.spawn(command) -> scoped handle { stdout, stderr, exitCode, kill }
+//   ChildProcessSpawner (Context.Service class = the tag)
+//     .spawn(command) -> scoped handle { stdout, stderr, exitCode, kill }
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as NodeCP from "node:child_process";
+
+export type Command = ProviderCommandSpec;
 
 export class ChildProcessSpawnError extends Schema.TaggedError<ChildProcessSpawnError>()(
   "ChildProcessSpawnError",
@@ -34,25 +34,21 @@ export interface ProviderCommandSpec {
 
 export interface ChildProcessHandle {
   readonly pid: number | undefined;
-  readonly stdout: Stream.Stream<Uint8Array>;
-  readonly stderr: Stream.Stream<Uint8Array>;
+  readonly stdout: Stream.Stream<Uint8Array, ChildProcessSpawnError>;
+  readonly stderr: Stream.Stream<Uint8Array, ChildProcessSpawnError>;
   readonly exitCode: Effect.Effect<number>;
   readonly kill: Effect.Effect<void>;
 }
 
 export interface ChildProcessSpawnerService {
   readonly spawn: (
-    command: ProviderCommandSpec,
+    command: Command,
   ) => Effect.Effect<ChildProcessHandle, ChildProcessSpawnError, Scope.Scope>;
 }
 
-const streamFromReadable = (readable: NodeJS.ReadableStream | null): Stream.Stream<Uint8Array> => {
-  if (!readable) return Stream.empty;
-  return Stream.fromAsyncIterable(
-    readable as AsyncIterable<Uint8Array>,
-    (cause) => new ChildProcessSpawnError({ command: "stream", cause }),
-  );
-};
+export declare namespace ChildProcess {
+  export type Command = ProviderCommandSpec;
+}
 
 export const ChildProcess = {
   make: (
@@ -63,18 +59,20 @@ export const ChildProcess = {
     Effect.succeed({ command, args: [...args], options: options ?? {} }),
 };
 
-export class ChildProcessSpawner {
-  static readonly ChildProcessSpawner: Context.Tag<
-    ChildProcessSpawner,
-    ChildProcessSpawnerService
-  > = Context.GenericTag<ChildProcessSpawner, ChildProcessSpawnerService>(
-    "omo/vendor/effect-unstable-process/ChildProcessSpawner",
-  );
-}
+export class ChildProcessSpawner extends Context.Service<
+  ChildProcessSpawner,
+  ChildProcessSpawnerService
+>("omo/vendor/effect-unstable-process/ChildProcessSpawner") {}
 
-export declare namespace ChildProcess {
-  export type Command = ProviderCommandSpec;
-}
+const streamFromReadable = (
+  readable: NodeJS.ReadableStream | null,
+): Stream.Stream<Uint8Array, ChildProcessSpawnError> => {
+  if (!readable) return Stream.empty;
+  return Stream.fromAsyncIterable(
+    readable as AsyncIterable<Uint8Array>,
+    (cause) => new ChildProcessSpawnError({ command: "stream", cause }),
+  );
+};
 
 export const makeNodeChildProcessSpawner = (): ChildProcessSpawnerService => ({
   spawn: (spec) =>
@@ -87,7 +85,7 @@ export const makeNodeChildProcessSpawner = (): ChildProcessSpawnerService => ({
             cwd: spec.options?.cwd,
             stdio: ["ignore", "pipe", "pipe"],
           });
-          const exitCode = Effect.async<number>((resume) => {
+          const exitCode = Effect.callback<number>((resume) => {
             const onExit = (code: number | null): void =>
               resume(Effect.succeed(code === null ? -1 : code));
             const onError = (): void => resume(Effect.succeed(-1));

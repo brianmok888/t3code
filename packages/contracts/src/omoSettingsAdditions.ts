@@ -1,5 +1,8 @@
 // omo fork additions extracted from omo-desktop contracts/src/settings.ts
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { makeBinaryPathSetting, makeProviderSettingsSchema } from "./settings.ts";
+import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
 export const OmoSettings = makeProviderSettingsSchema(
   {
@@ -38,3 +41,18 @@ export class OmoUpdateFavoriteModelsError extends Schema.TaggedError<OmoUpdateFa
     detail: Schema.String,
   },
 ) {}
+
+// from omo-desktop contracts/src/server.ts
+export const ServerProviderMcpStatus = Schema.Literals([
+  "enabled",
+  "disabled",
+  "untrusted",
+  "idle",
+  "connecting",
+  "connected",
+  "degraded",
+  "suspended",
+  "needs_auth",
+  "needs_client_registration",
+]);
+export type ServerProviderMcpStatus = typeof ServerProviderMcpStatus.Type;

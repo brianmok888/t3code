@@ -91,3 +91,16 @@ export type ProviderInstanceConfigMap = typeof ProviderInstanceConfigMap.Type;
  */
 export const defaultInstanceIdForDriver = (driver: ProviderDriverKind): ProviderInstanceId =>
   ProviderInstanceId.make(driver);
+
+/** omo fork: legacy senpi->omo provider id normalization (from omo-desktop contracts). */
+export const LEGACY_PROVIDER_ID_MAP = { senpi: "omo" } as const;
+
+export function normalizeLegacyProviderId(id: ProviderDriverKind): ProviderDriverKind;
+export function normalizeLegacyProviderId(id: ProviderInstanceId): ProviderInstanceId;
+export function normalizeLegacyProviderId(id: string): string;
+export function normalizeLegacyProviderId(id: unknown): unknown {
+  if (typeof id !== "string") return id;
+  return Object.prototype.hasOwnProperty.call(LEGACY_PROVIDER_ID_MAP, id)
+    ? LEGACY_PROVIDER_ID_MAP[id as keyof typeof LEGACY_PROVIDER_ID_MAP]
+    : id;
+}

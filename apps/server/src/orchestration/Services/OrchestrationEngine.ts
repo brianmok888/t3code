@@ -10,7 +10,7 @@
  *
  * @module OrchestrationEngineService
  */
-import type { OrchestrationCommand, OrchestrationEvent, ThreadId } from "@t3tools/contracts";
+import type { OrchestrationV2Command, OrchestrationV2Event, ThreadId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
 import type * as Stream from "effect/Stream";
@@ -35,12 +35,12 @@ export interface OrchestrationEngineShape {
   readonly readEvents: (
     fromSequenceExclusive: number,
     limit?: number,
-  ) => Stream.Stream<OrchestrationEvent, OrchestrationEventStoreError, never>;
+  ) => Stream.Stream<OrchestrationV2Event, OrchestrationEventStoreError, never>;
 
   readonly readLatestThreadRuntimeEvents: (
     threadId: ThreadId,
     sequenceInclusive: number,
-  ) => Effect.Effect<ReadonlyArray<OrchestrationEvent>, OrchestrationEventStoreError, never>;
+  ) => Effect.Effect<ReadonlyArray<OrchestrationV2Event>, OrchestrationEventStoreError, never>;
 
   /**
    * Dispatch a validated orchestration command.
@@ -52,7 +52,7 @@ export interface OrchestrationEngineShape {
    * command receipts.
    */
   readonly dispatch: (
-    command: OrchestrationCommand,
+    command: OrchestrationV2Command,
   ) => Effect.Effect<{ sequence: number }, OrchestrationDispatchError, never>;
 
   /**
@@ -60,7 +60,7 @@ export interface OrchestrationEngineShape {
    *
    * This is a hot runtime stream (new events only), not a historical replay.
    */
-  readonly streamDomainEvents: Stream.Stream<OrchestrationEvent>;
+  readonly streamDomainEvents: Stream.Stream<OrchestrationV2Event>;
 
   /**
    * The latest sequence reflected in the engine's authoritative command read

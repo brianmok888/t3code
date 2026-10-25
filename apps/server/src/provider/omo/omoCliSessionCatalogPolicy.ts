@@ -23,7 +23,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import type {
-  AdoptedSessionProvenanceRepository,
+  AdoptedSessionProvenanceService,
   AdoptedSessionProvenanceRepositoryError,
 } from "../../persistence/Services/AdoptedSessionProvenance.ts";
 import type { ProviderSessionRuntimeRepository } from "../../persistence/ProviderSessionRuntime.ts";
@@ -108,7 +108,7 @@ export type CliSessionClassification =
   | { readonly render: true; readonly status: CliSessionCatalogStatus };
 
 export type CliSessionClassificationDeps = {
-  readonly provenance: AdoptedSessionProvenanceRepository["Service"];
+  readonly provenance: AdoptedSessionProvenanceService;
   readonly omoSessionDirs: ReadonlyArray<string>;
   readonly desktopSessionIds: ReadonlySet<string>;
 };

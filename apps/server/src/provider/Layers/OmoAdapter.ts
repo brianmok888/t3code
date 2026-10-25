@@ -1,6 +1,20 @@
+import type {
+  CanonicalItemType,
+  OmoSettings,
+  ProviderSendTurnInput,
+  ProviderSession,
+  RuntimePlanStep,
+  ThreadActiveMonitor,
+  ThreadDagNodeActivity,
+  ThreadDagRun,
+  ThreadGoal,
+  ThreadSteeringQueuedMessage,
+  ThreadSteeringState,
+  ThreadSubagentTask,
+  UserInputQuestion,
+} from "@t3tools/contracts";
 import {
   ApprovalRequestId,
-  type CanonicalItemType,
   EventId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -8,20 +22,8 @@ import {
   RuntimeRequestId,
   ThreadId,
   TurnId,
-  type ProviderRuntimeEvent,
-  type ProviderSendTurnInput,
-  type ProviderSession,
-  type RuntimePlanStep,
-  type OmoSettings,
-  type ThreadActiveMonitor,
-  type ThreadGoal,
-  type ThreadSteeringQueuedMessage,
-  type ThreadDagNodeActivity,
-  type ThreadDagRun,
-  type ThreadSubagentTask,
-  type ThreadSteeringState,
-  type UserInputQuestion,
 } from "@t3tools/contracts";
+import type { ProviderRuntimeEvent } from "../omo/omoRuntimeEvents.ts";
 import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -107,10 +109,7 @@ import {
   OMO_MONITOR_STATE_EVENT_NAME,
 } from "../omo/omoMonitorStateEvent.ts";
 import { projectOmoAutoCompaction } from "../omo/omoSessionStats.ts";
-import {
-  getModelSelectionOptionValue,
-  getModelSelectionStringOptionValue,
-} from "@t3tools/shared/model";
+import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { makeOmoSharedProcess } from "./OmoSharedProcess.ts";
 import {
   normalizeOmoDialogQuestion,
@@ -224,7 +223,7 @@ type OmoSessionContext = {
   readonly threadId: ThreadId;
   readonly handle: OmoSessionHandle;
   readonly eventQueue: Queue.Queue<OmoEvent>;
-  readonly scope: Scope.Scope;
+  readonly scope: Scope.Closeable;
   readonly sessionFile: string;
   currentModel: OmoModelRef | undefined;
   /** One-shot guard for the model_change entry emitted by a successful T3 set_model. */
@@ -307,7 +306,7 @@ type ItemCompletedInput = ItemStartedInput & {
 };
 export type OmoSharedProcessFactory = (
   options: OmoSharedProcessOptions,
-) => Effect.Effect<OmoSharedProcess, never, ChildProcessSpawner.ChildProcessSpawner | Scope.Scope>;
+) => Effect.Effect<OmoSharedProcess, never, ChildProcessSpawner | Scope.Scope>;
 export type OmoAdapterShape = ProviderAdapterShape<ProviderAdapterError> & {
   /** The provider instance's sole RPC supervisor, shared with status probes. */
   readonly sharedProcess: OmoSharedProcess;
@@ -825,17 +824,13 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
 ): Effect.fn.Return<
   OmoAdapterShape,
   never,
-  | ChildProcessSpawner.ChildProcessSpawner
-  | FileSystem.FileSystem
-  | Path.Path
-  | Scope.Scope
-  | ServerConfig
+  ChildProcessSpawner | FileSystem.FileSystem | Path.Path | Scope.Scope | ServerConfig
 > {
   const boundInstanceId = options.instanceId ?? ProviderInstanceId.make("omo");
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const serverConfig = yield* ServerConfig;
-  const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const childProcessSpawner = yield* ChildProcessSpawner;
   const adapterScope = yield* Scope.Scope;
   yield* initializeOmoSessionLayout(serverConfig.stateDir).pipe(Effect.orDie);
   // A `*.partial` can only be an adoption copy interrupted between write and
@@ -900,7 +895,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
       ...(options.environment === undefined ? {} : { env: options.environment }),
     }).pipe(
       Effect.provideService(Scope.Scope, adapterScope),
-      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
+      Effect.provideService(ChildProcessSpawner, childProcessSpawner),
     ));
   let nextEventSequence = 1;
   let nextTurnSequence = 1;
@@ -3384,7 +3379,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
       if (requestedModel !== undefined) {
         yield* applySessionModel(context, requestedModel, "turn/start");
       }
-      const rawThinkingLevel = getModelSelectionOptionValue(
+      const rawThinkingLevel = getModelSelectionStringOptionValue(
         input.modelSelection,
         THINKING_LEVEL_OPTION_ID,
       );

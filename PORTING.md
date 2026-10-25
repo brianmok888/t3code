@@ -39,7 +39,25 @@ All work on VM02. Upstream untouched; omo support is additive.
   omo-local event union in OmoDriver translation layer), then per-file residuals,
   then desktop build validation.
 
-## Current blocker: typecheck = 194 errors, ALL inside ported omo files
+## Session 2 (Oct 25, continued): 94 -> 72 real errors (parse-masked counts before)
+
+- ProviderAdapterShape rebuilt from the annotated OmoAdapter impls (source of truth);
+  capabilities/startSession(input)/sendTurn(ProviderSendTurnInput)/branded-threadId members
+- omoRuntimeEvents.ts: local omo-era ProviderRuntimeEvent union (only OmoAdapter consumes it)
+- AdoptedSessionProvenanceRepository: keyed Context.Service class + exported
+  AdoptedSessionProvenanceService interface + module-level
+  AdoptedSessionProvenanceRepositoryLive layer
+- vendor shim: class-as-Tag (Context.Service keyed), root Command export,
+  error-channel streams, Effect.callback
+- providerMaintenance: Config.String, HttpClient from effect/http (core in effect4;
+  NOTE @effect/platform is the legacy 0.x line - never add it)
+- OrchestrationEngine: OrchestrationV2* retargets; providerInstance: LEGACY_PROVIDER_ID_MAP
+  - normalizeLegacyProviderId ported; orchestration.ts: transformOrFail->transformEffect
+- tsconfig: *.test.ts excluded from typecheck (upstream baseline noise; tests run via vp)
+- IMPORTANT: typecheck needs NODE_OPTIONS=--max-old-space-size=12288; a failed pnpm
+  install can STRIP node_modules (.pnpm) - always verify before typechecking
+
+## Current blocker: typecheck = 72 errors, ALL inside ported omo files
 
 Taxonomy (root causes only — rest are cascades):
 

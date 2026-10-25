@@ -189,7 +189,7 @@ export const omoRuntimeUpdateCommand = (
 
 export type OmoDriverEnv =
   | BackgroundPolicy.BackgroundPolicy
-  | ChildProcessSpawner.ChildProcessSpawner
+  | ChildProcessSpawner
   | FileSystem.FileSystem
   | Path.Path
   | ServerConfig
@@ -303,7 +303,7 @@ export const OmoDriver: ProviderDriver<OmoSettings, OmoDriverEnv> = {
   defaultConfig: (): OmoSettings => decodeOmoSettings({}),
   create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
     Effect.gen(function* () {
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const spawner = yield* ChildProcessSpawner;
       const fileSystem = yield* FileSystem.FileSystem;
       const pathService = yield* Path.Path;
       const serverSettings = yield* ServerSettingsService;
@@ -421,7 +421,7 @@ export const OmoDriver: ProviderDriver<OmoSettings, OmoDriverEnv> = {
           ),
         ),
         Effect.map(stampIdentity),
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+        Effect.provideService(ChildProcessSpawner, spawner),
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provideService(Path.Path, pathService),
         Effect.scoped,
