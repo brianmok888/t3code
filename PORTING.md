@@ -160,3 +160,13 @@ resolveCommandPath precision re-type (upstream Effect.fn arg-tuple inference
 collapse under strict), builtInDrivers env-variance cast, telemetry casts,
 settingsAdditions declaration order.
 NEXT: vp build (desktop/web) -> Expo prebuild + assembleRelease for the APK.
+
+## Connection revalidation (Oct 25 eve): omo 5.1.45 -> 5.1.47 — ALL GREEN
+
+- official pairing held: omo-ai 5.1.47 (npm latest) still pins senpi 2026.10.23-1
+- real host lane-v5.sock: 12/12 PASS (model codex/gpt-6.1-sol via OmniRoute shim,
+  9 streaming deltas, agent_idle, reattach-by-path, clean close)
+- mock regression: 12/12 PASS
+- 5.1.47 host ensure reports EXPANDED capabilities (additive only; harness-relied
+  set intact): + session_relocation, move_session(+_revoke), unload_session,
+  runtime_identity_handover, retry_fallback_profile, warm, tool_barrier
