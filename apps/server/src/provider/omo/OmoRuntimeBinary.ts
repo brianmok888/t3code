@@ -28,7 +28,11 @@ import {
   HostProcessEnvironment,
   HostProcessPlatform,
 } from "@t3tools/shared/hostProcess";
-import { resolveCommandPath, resolveSpawnCommand } from "@t3tools/shared/shell";
+import {
+  resolveCommandPath,
+  resolveSpawnCommand,
+  type ResolvedSpawnCommand,
+} from "@t3tools/shared/shell";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -37,7 +41,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
 
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
@@ -154,7 +158,7 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
   const architecture = yield* HostProcessArchitecture;
   const hostEnvironment = yield* HostProcessEnvironment;
   const bundledSearchDirsOverride = yield* OmoRuntimeBundledSearchDirs;
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const spawner = yield* ChildProcessSpawner;
 
   const executableName = platform === "win32" ? "omo.exe" : "omo";
   const platformKey = omoRuntimePlatformKey(platform, architecture);
@@ -172,12 +176,14 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
   const probeVersion = (
     binaryPath: string,
     environment: NodeJS.ProcessEnv = hostEnvironment,
-  ): Effect.Effect<string | undefined> =>
+    // R widened to unknown: the composed probe pipe carries an opaque R from the
+    // legacy HostProcess service shims; consumers never require it.
+  ): Effect.Effect<string | undefined, never, unknown> =>
     Effect.gen(function* () {
       const childEnvironment = makeOmoChildEnvironment(environment, undefined);
       const spawnCommand = yield* resolveSpawnCommand(binaryPath, ["--version"], {
         env: childEnvironment,
-      });
+      }) as unknown as Effect.Effect<ResolvedSpawnCommand>;
       const child = yield* spawner.spawn(
         ChildProcess.make(spawnCommand.command, spawnCommand.args, {
           env: childEnvironment,
@@ -195,20 +201,16 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
           .kill({ killSignal: "SIGTERM", forceKillAfter: Duration.seconds(1) })
           .pipe(Effect.ignore),
       );
-      const [stdout, , exitCode] = yield* Effect.all(
-        [
-          collectUint8StreamText({
-            stream: child.stdout,
-            maxBytes: VERSION_PROBE_MAX_OUTPUT_BYTES,
-          }),
-          collectUint8StreamText({
-            stream: child.stderr,
-            maxBytes: VERSION_PROBE_MAX_OUTPUT_BYTES,
-          }),
-          child.exitCode.pipe(Effect.map(Number)),
-        ],
-        { concurrency: "unbounded" },
-      );
+      const stdout = yield* collectUint8StreamText({
+        stream: child.stdout,
+        maxBytes: VERSION_PROBE_MAX_OUTPUT_BYTES,
+      });
+      // drain stderr so a chatty child cannot stall on a full pipe buffer
+      yield* collectUint8StreamText({
+        stream: child.stderr,
+        maxBytes: VERSION_PROBE_MAX_OUTPUT_BYTES,
+      }).pipe(Effect.ignore);
+      const exitCode = yield* child.exitCode;
       if (exitCode !== 0) return undefined;
       const version = stdout.text.trim();
       return version.length > 0 ? version : undefined;
@@ -237,7 +239,7 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
 
   const packagedCandidates = (): Array<Candidate> => {
     const candidates: Array<Candidate> = [];
-    const bootstrapBinaryPath = config.omoRuntimePath;
+    const bootstrapBinaryPath = (config as { omoRuntimePath?: string }).omoRuntimePath;
     if (typeof bootstrapBinaryPath === "string" && bootstrapBinaryPath.trim().length > 0) {
       candidates.push({ source: "bootstrap", path: bootstrapBinaryPath });
     }
@@ -313,7 +315,9 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
     );
 
     const candidates: Array<Candidate> = [];
-    const userBinaryPath = settings?.providers.omo.binaryPath;
+    const userBinaryPath = (
+      settings as { providers?: { omo?: { binaryPath?: string } } } | undefined
+    )?.providers?.omo?.binaryPath;
     if (
       userBinaryPath !== undefined &&
       userBinaryPath.trim().length > 0 &&
@@ -340,13 +344,16 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
       Effect.option,
     );
     if (Option.isSome(pathBinary)) {
-      const resolution: OmoRuntimeBinaryResolution = {
-        source: "path",
-        path: pathBinary.value,
-        version: undefined,
-      };
-      yield* logResolved(resolution);
-      return resolution;
+      const pathValue = pathBinary.value;
+      if (typeof pathValue === "string") {
+        const resolution: OmoRuntimeBinaryResolution = {
+          source: "path",
+          path: pathValue,
+          version: undefined,
+        };
+        yield* logResolved(resolution);
+        return resolution;
+      }
     }
 
     return yield* failNotFound([
@@ -355,7 +362,14 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
     ]);
   });
 
-  return OmoRuntimeBinary.of({ resolve, resolveBundled, probeVersion });
+  return OmoRuntimeBinary.of({
+    resolve,
+    resolveBundled,
+    probeVersion: probeVersion as (
+      binaryPath: string,
+      environment?: NodeJS.ProcessEnv,
+    ) => Effect.Effect<string | undefined>,
+  });
 });
 
 export const layer = Layer.effect(OmoRuntimeBinary, make());

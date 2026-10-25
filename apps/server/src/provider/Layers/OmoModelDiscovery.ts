@@ -95,7 +95,7 @@ export const classifyDiscoveredModels = (
     : Result.succeed(discovered.map(omoModelToServerModel));
 };
 
-type OmoProviderEnv = ChildProcessSpawner.ChildProcessSpawner | Scope.Scope;
+type OmoProviderEnv = ChildProcessSpawner | Scope.Scope;
 
 const SHARED_PROCESS_ERROR_TAGS = new Set([
   "OmoSharedProcessExited",

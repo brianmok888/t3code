@@ -127,3 +127,18 @@ OmoAdapter event vocabulary is resolved.
    session-2 block omitted the omoRuntimeEvents decision — noted here.
    Kimi claims that did NOT verify: "event decision missing from Next list" (it was
    listed + executed); per-round commit attribution exists in git log.
+
+## Round C (Oct 25): OmoRuntimeBinary cluster CLEAN — 51 -> 38, kimi-validated (PASS after 1 FAIL->remediation)
+
+- vendor shim contract aligned to effect-3 process parity: ChildProcess.make SYNC factory
+  (call sites pass it bare to spawner.spawn), handle.kill CALLABLE with
+  {killSignal, forceKillAfter} (Duration accepted), make/kill options widened
+- probeVersion: stderr drain restored, Effect.all tuple-union quirk bypassed (direct
+  yields), resolveSpawnCommand R-cast, probeVersion cast at OmoRuntimeBinary.of site;
+  annotation R=unknown with comment (opaque pipe R; consumers verified)
+- omoRuntimePath + providers.omo.binaryPath via typed casts (omo-era fields absent in v0.1.2)
+- LESSON: retarget sweeps must match the ported-file set ONLY — a blind
+  ChildProcessSpawner.ChildProcessSpawner sweep touched 36 upstream files (upstream uses
+  the namespaced pattern against its own module) — caught by error explosion 46->244,
+  fully reverted via git checkout; upstream files stay untouched
+- shim scope note: SIGTERM-only kill; non-SIGTERM call sites need shim work first (kimi residual)

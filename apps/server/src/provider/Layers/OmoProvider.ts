@@ -57,7 +57,7 @@ export interface OmoProbeOutcome {
   readonly enabled: boolean;
 }
 
-type OmoProviderEnv = ChildProcessSpawner.ChildProcessSpawner | Scope.Scope;
+type OmoProviderEnv = ChildProcessSpawner | Scope.Scope;
 
 export type CheckOmoProviderStatusOptions = {
   readonly environment?: NodeJS.ProcessEnv;
@@ -119,11 +119,7 @@ const MULTI_SESSION_CAPABILITY = "multi_session";
  */
 export const probeMultiSessionCapability = (
   shared: OmoSharedProcess,
-): Effect.Effect<
-  void,
-  OmoMultiSessionUnsupported | OmoSharedProcessError,
-  ChildProcessSpawner.ChildProcessSpawner
-> =>
+): Effect.Effect<void, OmoMultiSessionUnsupported | OmoSharedProcessError, ChildProcessSpawner> =>
   Effect.gen(function* () {
     const responseResult = yield* shared
       .request({ type: "get_protocol_info" }, "probe")

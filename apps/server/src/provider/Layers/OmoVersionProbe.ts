@@ -88,11 +88,7 @@ export const classifyVersionProbe = (
 export const probeVersion = (
   binaryPath: string,
   environment: NodeJS.ProcessEnv,
-): Effect.Effect<
-  Result.Result<string, ProviderProbeResult>,
-  never,
-  ChildProcessSpawner.ChildProcessSpawner
-> =>
+): Effect.Effect<Result.Result<string, ProviderProbeResult>, never, ChildProcessSpawner> =>
   Effect.gen(function* () {
     const childEnvironment = makeOmoChildEnvironment(environment, undefined);
     const spawnCommand = yield* resolveSpawnCommand(binaryPath, ["--version"], {

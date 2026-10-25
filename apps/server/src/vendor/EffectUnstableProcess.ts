@@ -5,6 +5,7 @@
 //   ChildProcessSpawner (Context.Service class = the tag)
 //     .spawn(command) -> scoped handle { stdout, stderr, exitCode, kill }
 import * as Context from "effect/Context";
+import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
@@ -29,6 +30,8 @@ export interface ProviderCommandSpec {
     readonly shell?: string | boolean;
     readonly cwd?: string;
     readonly timeoutMs?: number;
+    readonly killSignal?: NodeJS.Signals | number;
+    readonly forceKillAfter?: number | string | Duration.Duration;
   };
 }
 
@@ -37,7 +40,10 @@ export interface ChildProcessHandle {
   readonly stdout: Stream.Stream<Uint8Array, ChildProcessSpawnError>;
   readonly stderr: Stream.Stream<Uint8Array, ChildProcessSpawnError>;
   readonly exitCode: Effect.Effect<number>;
-  readonly kill: Effect.Effect<void>;
+  readonly kill: (options?: {
+    readonly killSignal?: NodeJS.Signals | number;
+    readonly forceKillAfter?: number | string | Duration.Duration;
+  }) => Effect.Effect<void>;
 }
 
 export interface ChildProcessSpawnerService {
@@ -55,8 +61,7 @@ export const ChildProcess = {
     command: string,
     args: ReadonlyArray<string>,
     options?: ProviderCommandSpec["options"],
-  ): Effect.Effect<ProviderCommandSpec> =>
-    Effect.succeed({ command, args: [...args], options: options ?? {} }),
+  ): ProviderCommandSpec => ({ command, args: [...args], options: options ?? {} }),
 };
 
 export class ChildProcessSpawner extends Context.Service<
@@ -82,6 +87,7 @@ export const makeNodeChildProcessSpawner = (): ChildProcessSpawnerService => ({
           const child = NodeCP.spawn(spec.command, [...spec.args], {
             env: spec.options?.env as NodeJS.ProcessEnv | undefined,
             shell: spec.options?.shell as NodeCP.SpawnOptions["shell"],
+            killSignal: spec.options?.killSignal as NodeCP.SpawnOptions["killSignal"],
             cwd: spec.options?.cwd,
             stdio: ["ignore", "pipe", "pipe"],
           });
@@ -101,14 +107,17 @@ export const makeNodeChildProcessSpawner = (): ChildProcessSpawnerService => ({
             stdout: streamFromReadable(child.stdout),
             stderr: streamFromReadable(child.stderr),
             exitCode,
+            // shim scope: SIGTERM only; forceKillAfter escalation not implemented
             kill: Effect.sync(() => {
-              if (child.exitCode === null) child.kill("SIGTERM");
+              if (child.exitCode === null) {
+                child.kill((spec.options?.killSignal ?? "SIGTERM") as NodeJS.Signals);
+              }
             }),
           };
           return handle;
         },
         catch: (cause) => new ChildProcessSpawnError({ command: spec.command, cause }),
       }),
-      (handle) => handle.kill,
+      (handle) => handle.kill(),
     ),
 });
