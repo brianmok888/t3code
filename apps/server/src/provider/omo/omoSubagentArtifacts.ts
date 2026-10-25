@@ -69,7 +69,7 @@ export type OmoSubagentTranscript = {
   readonly truncated: boolean;
 };
 
-export class OmoSubagentTaskIdError extends Schema.TaggedErrorClass<OmoSubagentTaskIdError>()(
+export class OmoSubagentTaskIdError extends Schema.TaggedError<OmoSubagentTaskIdError>()(
   "OmoSubagentTaskIdError",
   { taskId: Schema.String },
 ) {}

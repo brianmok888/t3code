@@ -29,7 +29,7 @@ export const OmoRpcSessionState = Schema.Struct({
 });
 export type OmoRpcSessionState = typeof OmoRpcSessionState.Type;
 
-export class OmoResumeMismatch extends Schema.TaggedErrorClass<OmoResumeMismatch>()(
+export class OmoResumeMismatch extends Schema.TaggedError<OmoResumeMismatch>()(
   "OmoResumeMismatch",
   {
     expectedSessionId: Schema.String,
@@ -40,7 +40,7 @@ export class OmoResumeMismatch extends Schema.TaggedErrorClass<OmoResumeMismatch
 
 export type OmoSuccessfulResponse = Extract<OmoResponse, { readonly success: true }>;
 
-export class OmoSessionHandleProtocolError extends Schema.TaggedErrorClass<OmoSessionHandleProtocolError>()(
+export class OmoSessionHandleProtocolError extends Schema.TaggedError<OmoSessionHandleProtocolError>()(
   "OmoSessionHandleProtocolError",
   { detail: Schema.String },
 ) {}

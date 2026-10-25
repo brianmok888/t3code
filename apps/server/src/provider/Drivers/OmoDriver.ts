@@ -18,7 +18,7 @@
  */
 import {
   CommandId,
-  type OrchestrationCommand,
+  type OrchestrationV2Command,
   ProviderDriverKind,
   OmoSettings,
 } from "@t3tools/contracts";
@@ -31,7 +31,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
 
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
@@ -174,7 +174,7 @@ export const refreshOmoProviderOnLoadedSurfacesChanged = (
 export const omoRuntimeUpdateCommand = (
   commandId: CommandId,
   input: OmoRuntimeProjectionInput,
-): OrchestrationCommand => ({
+): OrchestrationV2Command => ({
   type: "thread.runtime.update",
   commandId,
   threadId: input.threadId,

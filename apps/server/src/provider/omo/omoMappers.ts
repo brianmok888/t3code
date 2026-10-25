@@ -23,7 +23,7 @@ const PRESET_BY_RUNTIME_MODE = {
 export const omoPermissionPreset = (mode: RuntimeMode): OmoPermissionPreset =>
   PRESET_BY_RUNTIME_MODE[mode];
 
-export class OmoModelSlugError extends Schema.TaggedErrorClass<OmoModelSlugError>()(
+export class OmoModelSlugError extends Schema.TaggedError<OmoModelSlugError>()(
   "OmoModelSlugError",
   {
     slug: Schema.String,

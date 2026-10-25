@@ -824,7 +824,7 @@ export type OmoEvent = (OmoKnownEvent | OmoUnknownEvent) & {
 };
 export type OmoInboundRecord = OmoResponse | OmoEvent;
 
-export class OmoWireError extends Schema.TaggedErrorClass<OmoWireError>()("OmoWireError", {
+export class OmoWireError extends Schema.TaggedError<OmoWireError>()("OmoWireError", {
   lineNumber: Schema.Number,
   reason: Schema.String,
 }) {}

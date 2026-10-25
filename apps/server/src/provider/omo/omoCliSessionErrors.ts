@@ -30,7 +30,7 @@ export const CliSessionDefect = Schema.Literals([
 ]);
 export type CliSessionDefect = typeof CliSessionDefect.Type;
 
-export class SessionNotFound extends Schema.TaggedErrorClass<SessionNotFound>()("SessionNotFound", {
+export class SessionNotFound extends Schema.TaggedError<SessionNotFound>()("SessionNotFound", {
   sessionPath: Schema.String,
 }) {
   override get message(): string {
@@ -43,7 +43,7 @@ export class SessionNotFound extends Schema.TaggedErrorClass<SessionNotFound>()(
  * physical line that produced the defect, or null when the defect is a property
  * of the whole file (a missing header, an unsupported version).
  */
-export class SessionCorrupt extends Schema.TaggedErrorClass<SessionCorrupt>()("SessionCorrupt", {
+export class SessionCorrupt extends Schema.TaggedError<SessionCorrupt>()("SessionCorrupt", {
   sessionPath: Schema.String,
   defect: CliSessionDefect,
   line: Schema.NullOr(Schema.Number),
@@ -59,7 +59,7 @@ export class SessionCorrupt extends Schema.TaggedErrorClass<SessionCorrupt>()("S
  * addressed by path, and a path can be reused, so the id read from the header
  * is the only identity that survives a rename.
  */
-export class SessionIdMismatch extends Schema.TaggedErrorClass<SessionIdMismatch>()(
+export class SessionIdMismatch extends Schema.TaggedError<SessionIdMismatch>()(
   "SessionIdMismatch",
   {
     sessionPath: Schema.String,
@@ -73,7 +73,7 @@ export class SessionIdMismatch extends Schema.TaggedErrorClass<SessionIdMismatch
 }
 
 /** The session is already bound to a thread; adopting again would fork history. */
-export class SessionAlreadyAdopted extends Schema.TaggedErrorClass<SessionAlreadyAdopted>()(
+export class SessionAlreadyAdopted extends Schema.TaggedError<SessionAlreadyAdopted>()(
   "SessionAlreadyAdopted",
   {
     sessionPath: Schema.String,
@@ -90,7 +90,7 @@ export class SessionAlreadyAdopted extends Schema.TaggedErrorClass<SessionAlread
  * mean guessing at a schema a newer engine defined; migrating it would mean
  * rewriting a file the user's CLI still owns.
  */
-export class SessionVersionUnsupported extends Schema.TaggedErrorClass<SessionVersionUnsupported>()(
+export class SessionVersionUnsupported extends Schema.TaggedError<SessionVersionUnsupported>()(
   "SessionVersionUnsupported",
   {
     sessionPath: Schema.String,
@@ -104,7 +104,7 @@ export class SessionVersionUnsupported extends Schema.TaggedErrorClass<SessionVe
 }
 
 /** The file is past the read ceiling, so inspection would be unbounded work. */
-export class SessionTooLarge extends Schema.TaggedErrorClass<SessionTooLarge>()("SessionTooLarge", {
+export class SessionTooLarge extends Schema.TaggedError<SessionTooLarge>()("SessionTooLarge", {
   sessionPath: Schema.String,
   byteSize: Schema.Number,
   maxByteSize: Schema.Number,
@@ -123,7 +123,7 @@ export class SessionTooLarge extends Schema.TaggedErrorClass<SessionTooLarge>()(
  * Identical content is not this error — that is an alias, and adopting one copy
  * of two identical files loses nothing.
  */
-export class SessionDuplicateConflict extends Schema.TaggedErrorClass<SessionDuplicateConflict>()(
+export class SessionDuplicateConflict extends Schema.TaggedError<SessionDuplicateConflict>()(
   "SessionDuplicateConflict",
   {
     sessionPath: Schema.String,
@@ -141,7 +141,7 @@ export class SessionDuplicateConflict extends Schema.TaggedErrorClass<SessionDup
  * directory-name prefilter is lossy, so this is the check that actually decides
  * whether a candidate file belongs to a workspace.
  */
-export class CwdMismatch extends Schema.TaggedErrorClass<CwdMismatch>()("CwdMismatch", {
+export class CwdMismatch extends Schema.TaggedError<CwdMismatch>()("CwdMismatch", {
   sessionPath: Schema.String,
   sessionCwd: Schema.String,
   workspaceRoot: Schema.String,

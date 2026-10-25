@@ -32,7 +32,7 @@ export const PARTIAL_COPY_SUFFIX = ".partial";
 const COPY_CHUNK_SIZE = 64 * 1024;
 
 /** The copy landed but its bytes are not the source's; the copy was removed. */
-export class SessionCopyVerificationFailed extends Schema.TaggedErrorClass<SessionCopyVerificationFailed>()(
+export class SessionCopyVerificationFailed extends Schema.TaggedError<SessionCopyVerificationFailed>()(
   "SessionCopyVerificationFailed",
   {
     sourcePath: Schema.String,
@@ -47,7 +47,7 @@ export class SessionCopyVerificationFailed extends Schema.TaggedErrorClass<Sessi
 }
 
 /** The copy could not be written, synced or renamed; nothing was left behind. */
-export class SessionCopyFailed extends Schema.TaggedErrorClass<SessionCopyFailed>()(
+export class SessionCopyFailed extends Schema.TaggedError<SessionCopyFailed>()(
   "SessionCopyFailed",
   {
     sourcePath: Schema.String,

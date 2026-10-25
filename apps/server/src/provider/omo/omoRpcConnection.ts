@@ -109,7 +109,7 @@ export type Running = {
   readonly child: ChildProcessSpawner.ChildProcessHandle;
 };
 
-export class OmoSharedProcessExited extends Schema.TaggedErrorClass<OmoSharedProcessExited>()(
+export class OmoSharedProcessExited extends Schema.TaggedError<OmoSharedProcessExited>()(
   "OmoSharedProcessExited",
   {
     epoch: Schema.Number,
@@ -117,11 +117,11 @@ export class OmoSharedProcessExited extends Schema.TaggedErrorClass<OmoSharedPro
     stderrTail: Schema.String,
   },
 ) {}
-export class OmoSharedProcessSpawnFailed extends Schema.TaggedErrorClass<OmoSharedProcessSpawnFailed>()(
+export class OmoSharedProcessSpawnFailed extends Schema.TaggedError<OmoSharedProcessSpawnFailed>()(
   "OmoSharedProcessSpawnFailed",
   { binaryPath: Schema.String, cause: Schema.Defect() },
 ) {}
-export class OmoSharedProcessRequestFailed extends Schema.TaggedErrorClass<OmoSharedProcessRequestFailed>()(
+export class OmoSharedProcessRequestFailed extends Schema.TaggedError<OmoSharedProcessRequestFailed>()(
   "OmoSharedProcessRequestFailed",
   { command: Schema.String, detail: Schema.String },
 ) {}

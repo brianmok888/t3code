@@ -59,7 +59,7 @@ const decodeOmoAgentSettings = Schema.decodeUnknownResult(OmoAgentSettings);
 const decodeSettingsObject = Schema.decodeUnknownResult(SettingsObjectSchema);
 const encodeSettingsObject = Schema.encodeUnknownResult(fromJsonStringPretty(SettingsObjectSchema));
 
-export class OmoAgentSettingsWriteError extends Schema.TaggedErrorClass<OmoAgentSettingsWriteError>()(
+export class OmoAgentSettingsWriteError extends Schema.TaggedError<OmoAgentSettingsWriteError>()(
   "OmoAgentSettingsWriteError",
   {
     settingsPath: Schema.String,

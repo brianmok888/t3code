@@ -46,7 +46,7 @@ interface OmoCommandResult {
   readonly exitCode: number;
 }
 
-class OmoCommandError extends Schema.TaggedErrorClass<OmoCommandError>()("OmoCommandError", {
+class OmoCommandError extends Schema.TaggedError<OmoCommandError>()("OmoCommandError", {
   cause: Schema.Defect(),
 }) {}
 

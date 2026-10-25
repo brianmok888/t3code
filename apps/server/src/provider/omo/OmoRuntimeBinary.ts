@@ -71,7 +71,7 @@ export interface OmoRuntimeBinaryResolution {
   readonly version: string | undefined;
 }
 
-export class OmoRuntimeBinaryNotFound extends Schema.TaggedErrorClass<OmoRuntimeBinaryNotFound>()(
+export class OmoRuntimeBinaryNotFound extends Schema.TaggedError<OmoRuntimeBinaryNotFound>()(
   "OmoRuntimeBinaryNotFound",
   {
     platform: Schema.String,
@@ -84,7 +84,7 @@ export class OmoRuntimeBinaryNotFound extends Schema.TaggedErrorClass<OmoRuntime
   }
 }
 
-export class OmoRuntimeBinaryNotExecutable extends Schema.TaggedErrorClass<OmoRuntimeBinaryNotExecutable>()(
+export class OmoRuntimeBinaryNotExecutable extends Schema.TaggedError<OmoRuntimeBinaryNotExecutable>()(
   "OmoRuntimeBinaryNotExecutable",
   {
     path: Schema.String,

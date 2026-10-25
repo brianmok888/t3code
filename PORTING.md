@@ -20,7 +20,26 @@ All work on VM02. Upstream untouched; omo support is additive.
   env union + FIRST array entry, omo-first tie-break policy, faithful to
   omo-desktop)
 
-## Current blocker: typecheck = 753 errors, ALL inside ported omo files
+## Progress log
+
+- Round 1-4 (Oct 25): contracts reconstructed (9 omo files + omoSettingsAdditions
+  extracted from settings/server diffs; explicit demand-driven index re-exports),
+  TaggedErrorClass->TaggedError rename (19 files), Services/ProviderAdapter.ts +
+  ProviderAdapterRegistry.ts + 7 server modules ported, Errors.ts omo classes
+  appended (ProviderDriverError re-exported from provider-core/server/errors),
+  hostProcessCompat shim (v0.1.2 HostProcess References under legacy names),
+  vendor EffectUnstableProcess shim (effect-3 unstable/process API on
+  node:child_process), jsonc-parser added, OmoDriver Orchestration->V2 retarget.
+- Typecheck curve: 753 -> 516 (heap fix) -> 306 (exports) -> 209 -> 194.
+  Upstream files CLEAN (collateral fixed). Remaining 194: OmoAdapter.ts 110
+  (thread-event vocabulary drift: runtime.warning severity, user-input.* payload
+  shapes vs v0.1.2 ThreadEvent contracts) + effect-3->4 API residuals across
+  omo files + TS2375 exactOptional drift.
+- Next: port OmoAdapter event emissions to v0.1.2 contract shapes (or introduce
+  omo-local event union in OmoDriver translation layer), then per-file residuals,
+  then desktop build validation.
+
+## Current blocker: typecheck = 194 errors, ALL inside ported omo files
 
 Taxonomy (root causes only — rest are cascades):
 

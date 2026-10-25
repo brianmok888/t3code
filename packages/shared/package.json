@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./hostProcess": {
+      "types": "./src/hostProcessCompat.ts",
+      "import": "./src/hostProcessCompat.ts"
+    },
     "./changedFileKind": {
       "types": "./src/changedFileKind.ts",
       "import": "./src/changedFileKind.ts"

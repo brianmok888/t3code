@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
 
 import { nonEmptyTrimmed, type ProviderProbeResult } from "../providerSnapshot.ts";
 import { omoModelToServerModel, type OmoDiscoveredModel } from "../omo/omoMappers.ts";
@@ -151,7 +151,7 @@ export const extractRoutingHandle = (record: Readonly<Record<string, unknown>>):
   });
 };
 
-export class OmoDiscoveryProtocolError extends Schema.TaggedErrorClass<OmoDiscoveryProtocolError>()(
+export class OmoDiscoveryProtocolError extends Schema.TaggedError<OmoDiscoveryProtocolError>()(
   "OmoDiscoveryProtocolError",
   { detail: Schema.String },
 ) {}

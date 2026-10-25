@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
 
 import {
   buildServerProvider,
@@ -76,7 +76,7 @@ export type CheckOmoProviderStatusOptions = {
  * capability. The raw version string is carried as DIAGNOSTIC only — the gate
  * never parses semver or matches error strings.
  */
-export class OmoMultiSessionUnsupported extends Schema.TaggedErrorClass<OmoMultiSessionUnsupported>()(
+export class OmoMultiSessionUnsupported extends Schema.TaggedError<OmoMultiSessionUnsupported>()(
   "OmoMultiSessionUnsupported",
   {
     /** Diagnostic: raw `omo --version` output, or null when the version probe was skipped. */

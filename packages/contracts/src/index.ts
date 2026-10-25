@@ -66,3 +66,65 @@ export * from "./rpc.ts";
 export * from "./worktreeSetup.ts";
 export * from "./secretRequest.ts";
 export * from "./clientRpcPermissions.ts";
+// ── omo fork additions ──
+export * from "./omoSettingsAdditions.ts";
+
+// ── omo fork: explicit re-exports (avoid * collisions with upstream) ──
+export { OrchestrationV2ProviderSession, OrchestrationV2ThreadShell } from "./orchestrationV2.ts";
+export {
+  AgentConfigFileId,
+  AgentConfigMcpFile,
+  AgentConfigOmoAgentSettingsFile,
+  AgentConfigOmoEdit,
+  AgentConfigOmoFile,
+  AgentConfigReadError,
+  AgentConfigReadInput,
+  AgentConfigReadResult,
+  AgentConfigWriteError,
+  AgentConfigWriteInput,
+} from "./agentConfig.ts";
+export { OMO_AGENT_REQUIREMENTS } from "./omoAgentRequirements.ts";
+export {
+  OmoAuthCommandError,
+  OmoAuthMutationResult,
+  OmoAuthProvider,
+  OmoEffectiveModel,
+  OmoGetAuthProvidersResult,
+  OmoGetEffectiveModelResult,
+  OmoGetProviderAccountsResult,
+  OmoLoginStartResult,
+  OmoProviderAccount,
+} from "./omoAuth.ts";
+export { OMO_CATEGORY_REQUIREMENTS } from "./omoCategoryRequirements.ts";
+export {
+  OMO_AGENT_NAMES,
+  OMO_CATEGORY_NAMES,
+  OmoFallbackEntry,
+  OmoModelRoutingRow,
+  OmoRoutingKind,
+} from "./omoModelRouting.ts";
+export { OmoRestartSharedProcessError, OmoRestartSharedProcessResult } from "./omoProcess.ts";
+export { ThreadMessageHistoryEntry } from "./orchestration.ts";
+export {
+  OmoSubagentCancelRequest,
+  OmoSubagentCancelResult,
+  OmoSubagentOutputResult,
+  OmoSubagentOutputSnapshot,
+  OmoSubagentSendRequest,
+  OmoSubagentSendResult,
+  OmoSubagentTranscriptError,
+  OmoSubagentTranscriptEvent,
+  OmoSubagentTranscriptPayload,
+  OmoSubagentTranscriptRequest,
+  ThreadActiveMonitor,
+  ThreadDagNodeActivity,
+  ThreadDagRun,
+  ThreadDagRunNode,
+  ThreadGoal,
+  ThreadSteeringQueuedMessage,
+  ThreadSteeringState,
+  ThreadSubagentTask,
+  ThreadSubagentTaskResidencyState,
+  ThreadSubagentTaskStatus,
+  ThreadTurnDeliveryMode,
+} from "./threadRuntime.ts";
