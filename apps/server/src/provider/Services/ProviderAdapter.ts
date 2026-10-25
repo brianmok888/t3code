@@ -30,6 +30,11 @@ export interface ProviderAdapterStartSessionInput {
   readonly resumeCursor?: unknown;
 }
 
+export type ProviderSetSessionModel<E = ProviderAdapterError> = (
+  threadId: ThreadId,
+  model: string,
+) => Effect.Effect<string, E>;
+
 export interface ProviderAdapterShape<E = ProviderAdapterError> {
   readonly provider: typeof ProviderDriverKind.Type;
   readonly instanceId?: ProviderInstanceId;
@@ -59,4 +64,4 @@ export interface ProviderAdapterShape<E = ProviderAdapterError> {
 export class ProviderAdapter extends Context.Service<
   ProviderAdapter,
   { readonly make: (input: unknown) => Effect.Effect<ProviderAdapterShape> }
->() {}
+>()("omo/provider/Services/ProviderAdapter") {}
