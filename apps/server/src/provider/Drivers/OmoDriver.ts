@@ -18,7 +18,7 @@
  */
 import {
   CommandId,
-  type OrchestrationV2Command,
+  type OrchestrationCommand,
   ProviderDriverKind,
   OmoSettings,
 } from "@t3tools/contracts";
@@ -174,7 +174,7 @@ export const refreshOmoProviderOnLoadedSurfacesChanged = (
 export const omoRuntimeUpdateCommand = (
   commandId: CommandId,
   input: OmoRuntimeProjectionInput,
-): OrchestrationV2Command => ({
+): OrchestrationCommand => ({
   type: "thread.runtime.update",
   commandId,
   threadId: input.threadId,

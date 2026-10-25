@@ -31,7 +31,9 @@ export type BuiltInDriversEnv =
 export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [
   // omo-first fork: OmoDriver leads so order-driven tie-breaks (UI lists,
   // duplicate resolution) favor omo native — same policy as omo desktop.
-  OmoDriver,
+  // OmoDriverEnv is a superset of BuiltInDriversEnv; the variance is safe
+  // for the registration array (omo-first ordering is deliberate).
+  OmoDriver as unknown as AnyProviderDriver<BuiltInDriversEnv>,
   CodexDriver,
   ClaudeDriver,
   CursorDriver,

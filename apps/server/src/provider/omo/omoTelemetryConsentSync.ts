@@ -61,7 +61,7 @@ export const startOmoTelemetryConsentSync = (options: {
 
     // Subscribe before the snapshot so a decision taken between the two is not lost.
     yield* Stream.runForEach(settings.streamChanges, (change) =>
-      apply(change.telemetryConsent),
+      apply((change as { telemetryConsent?: OmoTelemetryConsent }).telemetryConsent),
     ).pipe(Effect.forkScoped);
     const snapshot = yield* settings.getSettings.pipe(
       Effect.catchCause((cause) =>
@@ -70,5 +70,7 @@ export const startOmoTelemetryConsentSync = (options: {
         }).pipe(Effect.as(undefined)),
       ),
     );
-    yield* apply(snapshot?.telemetryConsent);
+    yield* apply(
+      (snapshot as { telemetryConsent?: OmoTelemetryConsent } | undefined)?.telemetryConsent,
+    );
   });

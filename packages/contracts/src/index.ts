@@ -96,14 +96,15 @@ export {
   OmoProviderAccount,
 } from "./omoAuth.ts";
 export { OMO_CATEGORY_REQUIREMENTS } from "./omoCategoryRequirements.ts";
-export {
-  OMO_AGENT_NAMES,
-  OMO_CATEGORY_NAMES,
-  OmoFallbackEntry,
-  OmoModelRoutingRow,
-  OmoRoutingKind,
-} from "./omoModelRouting.ts";
-export { OmoRestartSharedProcessError, OmoRestartSharedProcessResult } from "./omoProcess.ts";
+export { OMO_AGENT_NAMES, OMO_CATEGORY_NAMES } from "./omoModelRouting.ts";
+export type { OmoFallbackEntry, OmoModelRoutingRow, OmoRoutingKind } from "./omoModelRouting.ts";
+export { OmoRestartSharedProcessError } from "./omoProcess.ts";
+export type { OmoRestartSharedProcessResult } from "./omoProcess.ts";
+export type {
+  OrchestrationCommand,
+  OrchestrationEvent,
+  OrchestrationThreadShell,
+} from "./orchestration.ts";
 export { ThreadMessageHistoryEntry } from "./orchestration.ts";
 export {
   OmoSubagentCancelRequest,
@@ -128,3 +129,4 @@ export {
   ThreadSubagentTaskStatus,
   ThreadTurnDeliveryMode,
 } from "./threadRuntime.ts";
+export type { ThreadSubagentsUpdatedPayload } from "./threadRuntime.ts";

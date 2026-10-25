@@ -210,11 +210,13 @@ export const makeOmoTextGeneration = (
   const generateCommitMessage: TextGeneration.TextGeneration["Service"]["generateCommitMessage"] =
     Effect.fn("OmoTextGeneration.generateCommitMessage")(function* (input) {
       const { prompt, outputSchema } = buildCommitMessagePrompt({
+        cwd: input.cwd,
         branch: input.branch,
         stagedSummary: input.stagedSummary,
         stagedPatch: input.stagedPatch,
         includeBranch: input.includeBranch === true,
         policy: input.policy,
+        modelSelection: input.modelSelection,
       });
       const generated = yield* runOmoJson({
         operation: "generateCommitMessage",
@@ -272,11 +274,22 @@ export const makeOmoTextGeneration = (
       return { title: sanitizeThreadTitle(generated.title) };
     });
 
+  // omo-era adapter never supported review-guide generation (absent from the
+  // original omo textGeneration service); fail explicitly rather than fabricate.
+  const generateReviewGuide: TextGeneration.TextGeneration["Service"]["generateReviewGuide"] = () =>
+    Effect.fail(
+      new TextGenerationError({
+        operation: "generateReviewGuide",
+        detail: "omo adapter does not support review-guide generation",
+      }),
+    );
+
   return {
     generateCommitMessage,
     generatePrContent,
     generateBranchName,
     generateThreadTitle,
+    generateReviewGuide,
   };
 };
 

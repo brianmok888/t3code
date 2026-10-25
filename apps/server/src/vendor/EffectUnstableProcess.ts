@@ -108,11 +108,12 @@ export const makeNodeChildProcessSpawner = (): ChildProcessSpawnerService => ({
             stderr: streamFromReadable(child.stderr),
             exitCode,
             // shim scope: SIGTERM only; forceKillAfter escalation not implemented
-            kill: Effect.sync(() => {
-              if (child.exitCode === null) {
-                child.kill((spec.options?.killSignal ?? "SIGTERM") as NodeJS.Signals);
-              }
-            }),
+            kill: () =>
+              Effect.sync(() => {
+                if (child.exitCode === null) {
+                  child.kill((spec.options?.killSignal ?? "SIGTERM") as NodeJS.Signals);
+                }
+              }),
           };
           return handle;
         },

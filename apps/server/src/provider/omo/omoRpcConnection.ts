@@ -6,7 +6,7 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Stream from "effect/Stream";
 import * as Scope from "effect/Scope";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import type { ChildProcessHandle } from "../../vendor/EffectUnstableProcess.ts";
 import * as Schema from "effect/Schema";
 
 export type OmoRequestKind = "open_session" | "close_session" | "probe" | "turn" | "control";
@@ -106,7 +106,7 @@ export interface OmoSharedProcess {
 export type Running = {
   readonly epoch: number;
   readonly stdin: Queue.Queue<Uint8Array, never>;
-  readonly child: ChildProcessSpawner.ChildProcessHandle;
+  readonly child: ChildProcessHandle;
 };
 
 export class OmoSharedProcessExited extends Schema.TaggedError<OmoSharedProcessExited>()(

@@ -142,3 +142,21 @@ OmoAdapter event vocabulary is resolved.
   the namespaced pattern against its own module) — caught by error explosion 46->244,
   fully reverted via git checkout; upstream files stay untouched
 - shim scope note: SIGTERM-only kill; non-SIGTERM call sites need shim work first (kimi residual)
+
+## ★ TYPECHECK-GREEN (Oct 25, round E, kimi-validated PASS) — 25 -> 5 (pure upstream baseline)
+
+The port compiles clean. Residual 5 = proven pristine-upstream tsc baseline
+(binCli, HostPowerMonitor, ServerBrowserStream x2, NativeTelemetryClient — all
+present in the v0.1.2 clean-checkout, which itself carries 42).
+KEY ALIGNMENT FIX: mechanical V2 renames were the misalignment — original names
+OrchestrationCommand/OrchestrationEvent (union already includes
+thread.runtime.update + thread.goal.update) restored in OrchestrationEngine +
+OmoDriver; both emit errors died with zero casts.
+Also: contracts index type/value export splits (verbatimModuleSyntax),
+orchestration/Errors.ts ported, ServerProviderShape reconstructed from the
+satisfies-block (upstream equiv = ManagedServerProvider; noted approximation),
+generateReviewGuide = explicit unsupported stub (omo era had none),
+resolveCommandPath precision re-type (upstream Effect.fn arg-tuple inference
+collapse under strict), builtInDrivers env-variance cast, telemetry casts,
+settingsAdditions declaration order.
+NEXT: vp build (desktop/web) -> Expo prebuild + assembleRelease for the APK.

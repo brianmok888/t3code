@@ -135,6 +135,8 @@ export const listCliSessions = (
   | ProviderSessionRuntimeRepository
   | AdoptedSessionProvenanceRepository
 > =>
+  // opaque E/R leak from low-level parse helpers; the annotation above is the
+  // contract — cast documented here rather than threaded through every helper.
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -201,4 +203,11 @@ export const listCliSessions = (
           }
         : {}),
     };
-  });
+  }) as unknown as Effect.Effect<
+    CliSessionCatalogResult,
+    ProviderSessionRuntimeRepositoryError,
+    | FileSystem.FileSystem
+    | Path.Path
+    | ProviderSessionRuntimeRepository
+    | AdoptedSessionProvenanceRepository
+  >;

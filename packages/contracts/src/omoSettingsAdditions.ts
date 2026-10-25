@@ -26,6 +26,20 @@ export const OmoSettings = makeProviderSettingsSchema(
 export type OmoSettings = typeof OmoSettings.Type;
 
 // from omo-desktop contracts/src/server.ts
+export const ServerProviderMcpStatus = Schema.Literals([
+  "enabled",
+  "disabled",
+  "untrusted",
+  "idle",
+  "connecting",
+  "connected",
+  "degraded",
+  "suspended",
+  "needs_auth",
+  "needs_client_registration",
+]);
+export type ServerProviderMcpStatus = typeof ServerProviderMcpStatus.Type;
+
 export const ServerProviderMcpServer = Schema.Struct({
   name: TrimmedNonEmptyString,
   toolCount: NonNegativeInt,
@@ -43,16 +57,3 @@ export class OmoUpdateFavoriteModelsError extends Schema.TaggedError<OmoUpdateFa
 ) {}
 
 // from omo-desktop contracts/src/server.ts
-export const ServerProviderMcpStatus = Schema.Literals([
-  "enabled",
-  "disabled",
-  "untrusted",
-  "idle",
-  "connecting",
-  "connected",
-  "degraded",
-  "suspended",
-  "needs_auth",
-  "needs_client_registration",
-]);
-export type ServerProviderMcpStatus = typeof ServerProviderMcpStatus.Type;

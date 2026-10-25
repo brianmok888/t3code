@@ -5,6 +5,7 @@ import {
 } from "@t3tools/contracts";
 import { compareSemverVersions } from "@t3tools/shared/semver";
 import { resolveCommandPath } from "@t3tools/shared/shell";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -365,8 +366,19 @@ export const resolveProviderMaintenanceCapabilitiesEffect = Effect.fn(
   }
 
   const env = options?.env ?? (yield* readCommandLookupEnv);
+  // precise re-type: Effect.fn arg-tuple inference collapses on this upstream
+  // export under the strict flag; R is preserved (Platform | Environment).
+  type CommandResolutionFailure = { readonly _tag: "CommandResolutionError" };
+  const resolveCommandPathTyped = resolveCommandPath as unknown as (
+    command: string,
+    options?: { readonly env?: Record<string, string | undefined> },
+  ) => Effect.Effect<
+    string | null,
+    CommandResolutionFailure,
+    typeof HostProcess.Platform | typeof HostProcess.Environment
+  >;
   const resolvedCommandPath =
-    (yield* resolveCommandPath(binaryPath, { env }).pipe(
+    (yield* resolveCommandPathTyped(binaryPath, { env }).pipe(
       Effect.catchTag("CommandResolutionError", () => Effect.succeed(null)),
     )) ?? (hasPathSeparator(binaryPath) ? binaryPath : null);
   if (!resolvedCommandPath) {
