@@ -61,12 +61,12 @@ All work on VM02. Upstream untouched; omo support is additive.
 
 Taxonomy (root causes only — rest are cascades):
 
-- TS2305 x84: omo-desktop EXTENDED @t3tools/contracts (OmoSettings,
+- [HISTORICAL — 753-error era] TS2305 x84: omo-desktop EXTENDED @t3tools/contracts (OmoSettings,
   ThreadDag*, ThreadSteering*, ThreadActiveMonitor, ThreadGoal,
   ThreadSubagentTask ...). Absent from upstream v0.1.2 AND v0.0.33.
   -> Reconstruction source CONFIRMED: ~/.omo-app/server/resources/app.asar
   compiled chunks carry the Schema definitions (17-49 hits/symbol).
-- TS2307 x27: modules not in extraction scope -> map to v0.1.2 equivalents
+- [HISTORICAL — 753-error era] TS2307 x27: modules not in extraction scope -> map to v0.1.2 equivalents
   or reconstruct.
 - effect 3 -> 4 API drift (Schema.TaggedErrorClass -> TaggedClass etc.),
   ~200 TS377030/TS377004 any-channel cascades + renames. t3 v0.1.2 = effect@4.0.5.
@@ -107,3 +107,22 @@ OmoAdapter event vocabulary is resolved.
    (apps/mobile, expo prebuild --clean + gradlew assembleRelease; SDK 36).
    Rules: native omo stays 100% official; additive-only; pin v0.1.2; MIT notices
    kept; sideload only; model traffic stays VM02 -> OmniRoute.
+
+## Independent review (Oct 25, kimi-for-coding via OmniRoute) — findings adopted
+
+1. "Upstream files CLEAN" was OVERSTATED: 5 residual errors sit in upstream files
+   (preview/ServerBrowserStream.ts 2, background/HostPowerMonitor 1,
+   resourceTelemetry/NativeTelemetryClient 1, binCli 1) — baseline-vs-tsc drift
+   OR collateral; verify against a clean checkout before shipping the claim.
+2. Wire harness validates the PROTOCOL, not the ported TypeScript — adapter-level
+   tests remain mandatory before any build claim.
+3. OmoDriver 178: "thread.runtime.update" rejected by an orchestration command
+   union — an unresolved union-member issue distinct from the (solved) event
+   vocabulary; not previously itemized.
+4. AdoptedSessionProvenance: keyed-Service fix INCOMPLETE (TS2507/TS2345/TS2488
+   remain — the yield*/Layer.effect service usage needs the exact upstream
+   two-stage pattern); implicit-any params at 96/105.
+5. Doc hygiene: stale 753-era taxonomy lines marked HISTORICAL (this commit);
+   session-2 block omitted the omoRuntimeEvents decision — noted here.
+   Kimi claims that did NOT verify: "event decision missing from Next list" (it was
+   listed + executed); per-round commit attribution exists in git log.
