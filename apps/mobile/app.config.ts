@@ -18,7 +18,20 @@ const personalTeamBundleIdentifier = repoEnv.T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID?
 const IOS_BUNDLE_IDENTIFIER_PATTERN = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
 const fromRepoRoot = (relativePath: string) => `../../${relativePath}`;
-const androidAdaptiveForeground = "./assets/android-icon-foreground.png";
+
+// FORK (brianmok888/t3code): unofficial client built for omo native. These
+// overrides are the fork's branding; upstream variants stay untouched above.
+const FORK_APP_NAME = "t3 omo";
+const FORK_ANDROID_PACKAGE = "codes.brianmok.t3";
+const FORK_ASSETS = {
+  appIcon: "./assets/fork/app-icon-1024.png",
+  splashIcon: "./assets/fork/splash-icon.png",
+  androidAdaptiveForeground: "./assets/fork/adaptive-foreground.png",
+  androidAdaptiveBackgroundColor: "#111533",
+  androidAdaptiveBackgroundImage: "./assets/fork/adaptive-background.png",
+  androidSplashIcon: "./assets/fork/splash-icon.png",
+} as const;
+const androidAdaptiveForeground = FORK_ASSETS.androidAdaptiveForeground;
 
 if (
   isIosPersonalTeamBuild &&
@@ -33,11 +46,11 @@ if (
 const DEVELOPMENT_ASSETS = {
   appIcon: fromRepoRoot(BRAND_ASSET_PATHS.developmentIosIconPng),
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.developmentIconComposerProject),
-  splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.developmentIosIconPng),
-  androidAdaptiveForeground,
-  androidAdaptiveBackgroundColor: "#347FF8",
-  androidAdaptiveBackgroundImage: "./assets/android-icon-background-dev.png",
-  androidSplashIcon: "./assets/android-splash-icon-dev.png",
+  splashIcon: FORK_ASSETS.splashIcon,
+  androidAdaptiveForeground: FORK_ASSETS.androidAdaptiveForeground,
+  androidAdaptiveBackgroundColor: FORK_ASSETS.androidAdaptiveBackgroundColor,
+  androidAdaptiveBackgroundImage: FORK_ASSETS.androidAdaptiveBackgroundImage,
+  androidSplashIcon: FORK_ASSETS.androidSplashIcon,
   androidMonochromeIcon: "./assets/android-icon-mark.png",
   androidNotificationIcon: "./assets/android-notification-icon.png",
   androidNotificationColor: "#00639B",
@@ -47,7 +60,7 @@ const PREVIEW_ASSETS = {
   appIcon: fromRepoRoot(BRAND_ASSET_PATHS.nightlyIosIconPng),
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.nightlyIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.nightlyIosIconPng),
-  androidAdaptiveForeground,
+  androidAdaptiveForeground: FORK_ASSETS.androidAdaptiveForeground,
   androidAdaptiveBackgroundColor: "#111533",
   androidAdaptiveBackgroundImage: "./assets/android-icon-background-nightly.png",
   androidSplashIcon: "./assets/android-splash-icon-nightly.png",
@@ -60,7 +73,7 @@ const RELEASE_ASSETS = {
   appIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIosIconPng),
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIosIconPng),
-  androidAdaptiveForeground,
+  androidAdaptiveForeground: FORK_ASSETS.androidAdaptiveForeground,
   androidAdaptiveBackgroundColor: "#000000",
   androidAdaptiveBackgroundImage: undefined,
   androidSplashIcon: "./assets/android-splash-icon-prod.png",
@@ -108,6 +121,7 @@ function resolveAppVariant(value: string | undefined): AppVariant {
 }
 
 const variant = VARIANT_CONFIG[APP_VARIANT];
+
 const iosBundleIdentifier = isIosPersonalTeamBuild
   ? personalTeamBundleIdentifier!
   : variant.iosBundleIdentifier;
@@ -222,7 +236,7 @@ const sharingPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
 // family names without waiting for runtime font loading.
 
 const config: ExpoConfig = {
-  name: variant.appName,
+  name: FORK_APP_NAME,
   slug: "t3-code",
   platforms: ["ios", "android"],
   scheme: variant.scheme,
@@ -234,7 +248,7 @@ const config: ExpoConfig = {
     policy: runtimeVersionPolicy,
   },
   orientation: "portrait",
-  icon: variant.assets.appIcon,
+  icon: FORK_ASSETS.appIcon,
   userInterfaceStyle: "automatic",
   updates: {
     enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
@@ -292,8 +306,8 @@ const config: ExpoConfig = {
     },
   },
   android: {
-    icon: variant.assets.appIcon,
-    package: variant.androidPackage,
+    icon: FORK_ASSETS.appIcon,
+    package: FORK_ANDROID_PACKAGE,
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
@@ -302,7 +316,7 @@ const config: ExpoConfig = {
       ...(variant.assets.androidAdaptiveBackgroundImage
         ? { backgroundImage: variant.assets.androidAdaptiveBackgroundImage }
         : {}),
-      foregroundImage: variant.assets.androidAdaptiveForeground,
+      foregroundImage: FORK_ASSETS.androidAdaptiveForeground,
       monochromeImage: variant.assets.androidMonochromeIcon,
     },
     // Opts into OnBackInvokedCallback-based back dispatch (Android 13+).
@@ -366,7 +380,7 @@ const config: ExpoConfig = {
         // the shortcut items set in src/features/shortcuts.
         androidIcons: {
           shortcut_icon: {
-            foregroundImage: variant.assets.androidAdaptiveForeground,
+            foregroundImage: FORK_ASSETS.androidAdaptiveForeground,
             backgroundColor: variant.assets.androidAdaptiveBackgroundColor,
             ...(variant.assets.androidAdaptiveBackgroundImage
               ? { backgroundImage: variant.assets.androidAdaptiveBackgroundImage }
@@ -421,6 +435,9 @@ const config: ExpoConfig = {
       {
         android: {
           minSdkVersion: 24,
+          // FORK: arm64-only slim build (all-ABI debug artifact remains
+          // reproducible by overriding this or gradle.properties).
+          reactNativeArchitectures: ["arm64-v8a"],
           // kotlinx-io uses Kotlin 2.3's return-value checker annotation, while
           // SDK 58 builds with Kotlin 2.2. It has no runtime behavior.
           // WorkManager 2.9 keeps InputMerger classes but not their constructors,
