@@ -110,10 +110,11 @@ OmoAdapter event vocabulary is resolved.
 
 ## Independent review (Oct 25, kimi-for-coding via OmniRoute) — findings adopted
 
-1. "Upstream files CLEAN" was OVERSTATED: 5 residual errors sit in upstream files
-   (preview/ServerBrowserStream.ts 2, background/HostPowerMonitor 1,
-   resourceTelemetry/NativeTelemetryClient 1, binCli 1) — baseline-vs-tsc drift
-   OR collateral; verify against a clean checkout before shipping the claim.
+1. RESOLVED (clean-checkout proof, pristine v0.1.2 worktree): the 5 upstream-file
+   errors (ServerBrowserStream 2, HostPowerMonitor 1, NativeTelemetryClient 1,
+   binCli 1) are PRE-EXISTING UPSTREAM BASELINE — pristine tag itself has 42
+   errors under plain `pnpm typecheck` (incl. ~37 test-file errors we exclude).
+   Upstream ships with a red tsc; their pipeline is vp/vpr. Port = 67 real errors.
 2. Wire harness validates the PROTOCOL, not the ported TypeScript — adapter-level
    tests remain mandatory before any build claim.
 3. OmoDriver 178: "thread.runtime.update" rejected by an orchestration command
