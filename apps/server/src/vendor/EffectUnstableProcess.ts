@@ -62,7 +62,7 @@ export const ChildProcess = {
 export class ChildProcessSpawner extends Context.Service<
   ChildProcessSpawner,
   ChildProcessSpawnerService
->("omo/vendor/effect-unstable-process/ChildProcessSpawner") {}
+>()("omo/vendor/effect-unstable-process/ChildProcessSpawner") {}
 
 const streamFromReadable = (
   readable: NodeJS.ReadableStream | null,

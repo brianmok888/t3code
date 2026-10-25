@@ -53,7 +53,7 @@ export interface AdoptedSessionProvenanceService {
 export class AdoptedSessionProvenanceRepository extends Context.Service<
   AdoptedSessionProvenanceRepository,
   AdoptedSessionProvenanceService
->("omo/persistence/AdoptedSessionProvenanceRepository") {}
+>()("omo/persistence/AdoptedSessionProvenanceRepository") {}
 
 export const AdoptedSessionProvenanceRepositoryLive = Layer.effect(
   AdoptedSessionProvenanceRepository,
