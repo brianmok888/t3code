@@ -1,0 +1,15 @@
+[Unit]
+Description=T3 Code server (omo fork, headless)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+User=mok
+Environment=HOME=/home/mok
+Environment=PATH=/home/mok/tools/node-v26.12.1-linux-x64/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/mok/tools/node-v26.12.1-linux-x64/bin/node /home/mok/projects/t3code/apps/server/dist/bin.mjs serve --tailscale-serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
