@@ -89,6 +89,8 @@ import * as NativeAppIconResolver from "./assets/NativeAppIconResolver.ts";
 import * as AntigravityInstallation from "./provider/AntigravityInstallation.ts";
 import * as CodexInstallation from "./provider/CodexInstallation.ts";
 import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.ts";
+// FORK (omo adapter): ported omo orchestration engine ledger provider.
+import { layerOrchestrationEngineLedger } from "./orchestration/Services/OrchestrationEngineLive.ts";
 import * as ProviderAdapterRegistry from "./orchestration-v2/ProviderAdapterRegistry.ts";
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as ProviderUsageLimitsIngestion from "./provider/ProviderUsageLimitsIngestion.ts";
@@ -616,6 +618,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
     Layer.mergeAll(Keybindings.layer, EnvironmentTheme.layer, UsageLimitSources.layer),
   ),
   Layer.provideMerge(ProviderRegistry.layer),
+  Layer.provideMerge(layerOrchestrationEngineLedger), // FORK (omo adapter)
   Layer.provideMerge(ProviderInstanceRegistryHydration.layer),
   Layer.provideMerge(
     Layer.mergeAll(

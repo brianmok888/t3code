@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { ChildProcess, ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { compareSemverVersions } from "@t3tools/shared/semver";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
@@ -88,7 +88,11 @@ export const classifyVersionProbe = (
 export const probeVersion = (
   binaryPath: string,
   environment: NodeJS.ProcessEnv,
-): Effect.Effect<Result.Result<string, ProviderProbeResult>, never, ChildProcessSpawner> =>
+): Effect.Effect<
+  Result.Result<string, ProviderProbeResult>,
+  never,
+  ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const childEnvironment = makeOmoChildEnvironment(environment, undefined);
     const spawnCommand = yield* resolveSpawnCommand(binaryPath, ["--version"], {

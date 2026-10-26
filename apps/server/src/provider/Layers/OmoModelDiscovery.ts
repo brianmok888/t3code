@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
+import { ChildProcessSpawner } from "effect/process";
 
 import { nonEmptyTrimmed, type ProviderProbeResult } from "../providerSnapshot.ts";
 import { omoModelToServerModel, type OmoDiscoveredModel } from "../omo/omoMappers.ts";
@@ -95,7 +95,7 @@ export const classifyDiscoveredModels = (
     : Result.succeed(discovered.map(omoModelToServerModel));
 };
 
-type OmoProviderEnv = ChildProcessSpawner | Scope.Scope;
+type OmoProviderEnv = ChildProcessSpawner.ChildProcessSpawner | Scope.Scope;
 
 const SHARED_PROCESS_ERROR_TAGS = new Set([
   "OmoSharedProcessExited",

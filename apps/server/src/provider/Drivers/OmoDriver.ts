@@ -31,12 +31,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
+import { ChildProcessSpawner } from "effect/process";
 
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
-import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
+import { makeLedgerEngineEffect } from "../../orchestration/Services/OrchestrationEngineLive.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import { makeOmoAdapter, type OmoAdapterOptions } from "../Layers/OmoAdapter.ts";
 import {
@@ -189,12 +189,11 @@ export const omoRuntimeUpdateCommand = (
 
 export type OmoDriverEnv =
   | BackgroundPolicy.BackgroundPolicy
-  | ChildProcessSpawner
+  | ChildProcessSpawner.ChildProcessSpawner
   | FileSystem.FileSystem
   | Path.Path
   | ServerConfig
-  | ServerSettingsService
-  | OrchestrationEngineService;
+  | ServerSettingsService;
 
 const OMO_STEERING_COALESCE_INTERVAL = Duration.millis(400);
 
@@ -303,11 +302,11 @@ export const OmoDriver: ProviderDriver<OmoSettings, OmoDriverEnv> = {
   defaultConfig: (): OmoSettings => decodeOmoSettings({}),
   create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
     Effect.gen(function* () {
-      const spawner = yield* ChildProcessSpawner;
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const fileSystem = yield* FileSystem.FileSystem;
       const pathService = yield* Path.Path;
       const serverSettings = yield* ServerSettingsService;
-      const orchestrationEngine = yield* OrchestrationEngineService;
+      const orchestrationEngine = yield* makeLedgerEngineEffect;
       const hostEnvironment = yield* HostProcessEnvironment;
       const processEnv = mergeProviderInstanceEnvironment(
         environment,
@@ -421,7 +420,7 @@ export const OmoDriver: ProviderDriver<OmoSettings, OmoDriverEnv> = {
           ),
         ),
         Effect.map(stampIdentity),
-        Effect.provideService(ChildProcessSpawner, spawner),
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provideService(Path.Path, pathService),
         Effect.scoped,

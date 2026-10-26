@@ -41,7 +41,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { ChildProcess, ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
@@ -158,7 +158,7 @@ export const make = Effect.fn("provider/omo.runtimeBinary.make")(function* () {
   const architecture = yield* HostProcessArchitecture;
   const hostEnvironment = yield* HostProcessEnvironment;
   const bundledSearchDirsOverride = yield* OmoRuntimeBundledSearchDirs;
-  const spawner = yield* ChildProcessSpawner;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
   const executableName = platform === "win32" ? "omo.exe" : "omo";
   const platformKey = omoRuntimePlatformKey(platform, architecture);

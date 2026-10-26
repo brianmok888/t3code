@@ -6,7 +6,7 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Stream from "effect/Stream";
 import * as Scope from "effect/Scope";
-import type { ChildProcessHandle } from "../../vendor/EffectUnstableProcess.ts";
+import type { ChildProcessHandle } from "effect/process/ChildProcessSpawner";
 import * as Schema from "effect/Schema";
 
 export type OmoRequestKind = "open_session" | "close_session" | "probe" | "turn" | "control";

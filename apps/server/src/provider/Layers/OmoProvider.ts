@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
+import { ChildProcessSpawner } from "effect/process";
 
 import {
   buildServerProvider,
@@ -57,7 +57,7 @@ export interface OmoProbeOutcome {
   readonly enabled: boolean;
 }
 
-type OmoProviderEnv = ChildProcessSpawner | Scope.Scope;
+type OmoProviderEnv = ChildProcessSpawner.ChildProcessSpawner | Scope.Scope;
 
 export type CheckOmoProviderStatusOptions = {
   readonly environment?: NodeJS.ProcessEnv;
@@ -119,7 +119,11 @@ const MULTI_SESSION_CAPABILITY = "multi_session";
  */
 export const probeMultiSessionCapability = (
   shared: OmoSharedProcess,
-): Effect.Effect<void, OmoMultiSessionUnsupported | OmoSharedProcessError, ChildProcessSpawner> =>
+): Effect.Effect<
+  void,
+  OmoMultiSessionUnsupported | OmoSharedProcessError,
+  ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const responseResult = yield* shared
       .request({ type: "get_protocol_info" }, "probe")

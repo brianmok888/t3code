@@ -13,11 +13,8 @@ import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import {
-  type Command,
-  ChildProcess,
-  ChildProcessSpawner,
-} from "../vendor/EffectUnstableProcess.ts";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import type { StandardCommand as Command } from "effect/process/ChildProcess";
 import { normalizeCustomModelSlug } from "@t3tools/shared/model";
 import { isWindowsCommandNotFound } from "../processRunner.ts";
 import { createProviderVersionAdvisory } from "./providerMaintenance.ts";
@@ -98,7 +95,7 @@ export function isCommandMissingCause(error: unknown): boolean {
 
 export const spawnAndCollect = (binaryPath: string, command: Command) =>
   Effect.gen(function* () {
-    const spawner = yield* ChildProcessSpawner;
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const child = yield* spawner.spawn(command);
     const [stdout, stderr, exitCode] = yield* Effect.all(
       [

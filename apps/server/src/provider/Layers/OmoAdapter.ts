@@ -38,7 +38,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
-import { ChildProcessSpawner } from "../../vendor/EffectUnstableProcess.ts";
+import { ChildProcessSpawner } from "effect/process";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import { sweepPartialSessionCopies } from "../omo/omoCliSessionCopy.ts";
@@ -307,7 +307,7 @@ type ItemCompletedInput = ItemStartedInput & {
 };
 export type OmoSharedProcessFactory = (
   options: OmoSharedProcessOptions,
-) => Effect.Effect<OmoSharedProcess, never, ChildProcessSpawner | Scope.Scope>;
+) => Effect.Effect<OmoSharedProcess, never, ChildProcessSpawner.ChildProcessSpawner | Scope.Scope>;
 export type OmoAdapterShape = ProviderAdapterShape<ProviderAdapterError> & {
   /** The provider instance's sole RPC supervisor, shared with status probes. */
   readonly sharedProcess: OmoSharedProcess;
@@ -825,13 +825,17 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
 ): Effect.fn.Return<
   OmoAdapterShape,
   never,
-  ChildProcessSpawner | FileSystem.FileSystem | Path.Path | Scope.Scope | ServerConfig
+  | ChildProcessSpawner.ChildProcessSpawner
+  | FileSystem.FileSystem
+  | Path.Path
+  | Scope.Scope
+  | ServerConfig
 > {
   const boundInstanceId = options.instanceId ?? ProviderInstanceId.make("omo");
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const serverConfig = yield* ServerConfig;
-  const childProcessSpawner = yield* ChildProcessSpawner;
+  const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const adapterScope = yield* Scope.Scope;
   yield* initializeOmoSessionLayout(serverConfig.stateDir).pipe(Effect.orDie);
   // A `*.partial` can only be an adoption copy interrupted between write and
@@ -896,7 +900,7 @@ export const makeOmoAdapter = Effect.fn("makeOmoAdapter")(function* (
       ...(options.environment === undefined ? {} : { env: options.environment }),
     }).pipe(
       Effect.provideService(Scope.Scope, adapterScope),
-      Effect.provideService(ChildProcessSpawner, childProcessSpawner),
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
     ));
   let nextEventSequence = 1;
   let nextTurnSequence = 1;
